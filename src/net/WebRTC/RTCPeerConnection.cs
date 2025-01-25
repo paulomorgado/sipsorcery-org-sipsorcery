@@ -42,6 +42,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Crypto.Tls;
+using SIPSorcery.net.WebRTC;
 using SIPSorcery.SIP.App;
 using SIPSorcery.Sys;
 
@@ -426,7 +427,7 @@ namespace SIPSorcery.Net
             logger.LogDebug("RTCPeerConnection created with DTLS certificate with fingerprint {DtlsCertificateFingerprint} and signature algorithm {DtlsCertificateSignatureAlgorithm}.", DtlsCertificateFingerprint, DtlsCertificateSignatureAlgorithm);
 
             // Save this log message to webrtc.pem and then to decode use: openssl x509 -in webrtc.pem -text -noout
-            logger.LogTrace("-----BEGIN CERTIFICATE-----\n{Certificate}\n-----END CERTIFICATE-----", DtlsUtils.ExportToDerBase64(_dtlsCertificate));
+            logger.LogDtlsCertificate(_dtlsCertificate);
 
             SessionID = Guid.NewGuid().ToString();
             LocalSdpSessionID = Crypto.GetRandomInt(5).ToString();
@@ -1839,8 +1840,7 @@ namespace SIPSorcery.Net
 
                 var remoteCertificate = dtlsHandle.GetRemoteCertificate().GetCertificateAt(0);
                 // Save this log message to webrtc.pem and then to decode use: openssl x509 -in webrtc.pem -text -noout
-                logger.LogTrace("Remote peer DTLS certificate, signature algorithm {RemoteCertificateSignatureAlgorithm}.\n-----BEGIN CERTIFICATE-----\n{Certificate}\n-----END CERTIFICATE-----",
-                    DtlsUtils.GetSignatureAlgorithm(remoteCertificate), Convert.ToBase64String(remoteCertificate.GetDerEncoded()));
+                logger.LogRemoteCertificate(remoteCertificate);
 
                 var expectedFp = RemotePeerDtlsFingerprint;
                 var remoteFingerprint = DtlsUtils.Fingerprint(expectedFp.algorithm, remoteCertificate);

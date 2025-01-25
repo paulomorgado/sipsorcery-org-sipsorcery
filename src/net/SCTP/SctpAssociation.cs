@@ -19,6 +19,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using Microsoft.Extensions.Logging;
+using SIPSorcery.net.SCTP;
 using SIPSorcery.Sys;
 
 namespace SIPSorcery.Net
@@ -370,19 +371,19 @@ namespace SIPSorcery.Net
         {
             if (_wasAborted)
             {
-                logger.LogWarning("SCTP packet received but association has been aborted, ignoring.");
+                logger.LogSctpPacketReceivedAborted();
             }
             else if (packet.Header.VerificationTag != VerificationTag)
             {
-                logger.LogWarning("SCTP packet dropped due to wrong verification tag, expected {VerificationTag} got {VerificationTagHeader}.", VerificationTag, packet.Header.VerificationTag);
+                logger.LogSctpPacketDroppedWrongVerificationTag(VerificationTag, packet.Header.VerificationTag);
             }
             else if (!_sctpTransport.IsPortAgnostic && packet.Header.DestinationPort != _sctpSourcePort)
             {
-                logger.LogWarning("SCTP packet dropped due to wrong SCTP destination port, expected {SourcePort} got {DestinationPort}.", _sctpSourcePort, packet.Header.DestinationPort);
+                logger.LogSctpPacketDroppedWrongDestinationPort(_sctpSourcePort, packet.Header.DestinationPort);
             }
             else if (!_sctpTransport.IsPortAgnostic && packet.Header.SourcePort != _sctpDestinationPort)
             {
-                logger.LogWarning("SCTP packet dropped due to wrong SCTP source port, expected {DestinationPort} got {SourcePortHeader}.", _sctpDestinationPort, packet.Header.SourcePort);
+                logger.LogSctpPacketDroppedWrongSourcePort(_sctpDestinationPort, packet.Header.SourcePort);
             }
             else
             {
@@ -394,7 +395,7 @@ namespace SIPSorcery.Net
                     {
                         case SctpChunkType.ABORT:
                             string abortReason = (chunk as SctpAbortChunk).GetAbortReason();
-                            logger.LogWarning("SCTP packet ABORT chunk received from remote party, reason {AbortReason}.", abortReason);
+                            logger.LogSctpPacketAbortChunkReceived(abortReason);
                             _wasAborted = true;
                             OnAbortReceived?.Invoke(abortReason);
                             break;
@@ -432,7 +433,7 @@ namespace SIPSorcery.Net
                             }
                             else
                             {
-                                logger.LogTrace("SCTP data chunk received on ID {ID} with TSN {TSN}, payload length {PayloadLength}, flags {Flags}.", ID, dataChunk.TSN, dataChunk.UserData.Length, dataChunk.ChunkFlags);
+                                logger.LogSctpDataChunkReceived(ID, dataChunk.TSN, dataChunk.UserData.Length, dataChunk.ChunkFlags);
 
                                 // A received data chunk can result in multiple data frames becoming available.
                                 // For example if a stream has out of order frames already received and the next
@@ -457,7 +458,7 @@ namespace SIPSorcery.Net
                             var errorChunk = chunk as SctpErrorChunk;
                             foreach (var err in errorChunk.ErrorCauses)
                             {
-                                logger.LogWarning("SCTP error {CauseCode}.", err.CauseCode);
+                                logger.LogSctpErrorReceived(err.CauseCode);
                             }
                             break;
 
@@ -638,7 +639,7 @@ namespace SIPSorcery.Net
                 // in the RFC that says to do it, but that's what usrsctp accepts.
                 uint? ackTSN = _dataReceiver.CumulativeAckTSN ?? _remoteInitialTSN - 1;
 
-                logger.LogTrace("SCTP sending shutdown for association {ID}, ACK TSN {ackTSN}.", ID, ackTSN);
+                logger.LogSctpSendingShutdown(ID, ackTSN);
 
                 SetState(SctpAssociationState.ShutdownSent);
 
@@ -677,7 +678,7 @@ namespace SIPSorcery.Net
         /// <param name="state">The new association state.</param>
         internal void SetState(SctpAssociationState state)
         {
-            logger.LogTrace("SCTP state for association {ID} changed to {State}.", ID, state);
+            logger.LogSctpStateChanged(ID, state);
             State = state;
             OnAssociationStateChanged?.Invoke(state);
         }

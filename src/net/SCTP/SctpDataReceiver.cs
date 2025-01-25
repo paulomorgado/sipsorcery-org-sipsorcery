@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using SIPSorcery.net.SCTP;
 
 namespace SIPSorcery.Net
 {
@@ -225,7 +226,7 @@ namespace SIPSorcery.Net
             }
             else if (!_forwardTSN.ContainsKey(dataChunk.TSN))
             {
-                logger.LogTrace("SCTP receiver got data chunk with TSN {TSN}, last in order TSN {LastInOrderTSN}, in order receive count {InOrderReceiveCount}.", dataChunk.TSN, _lastInOrderTSN, _inOrderReceiveCount);
+                logger.LogReceivedChunk(dataChunk.TSN, _lastInOrderTSN, _inOrderReceiveCount);
 
                 bool processFrame = true;
 
@@ -295,7 +296,7 @@ namespace SIPSorcery.Net
             }
             else
             {
-                logger.LogTrace("SCTP duplicate TSN received for {TSN}.", dataChunk.TSN);
+                logger.LogSctpDuplicateTsnReceived(dataChunk.TSN);
                 if (!_duplicateTSN.ContainsKey(dataChunk.TSN))
                 {
                     _duplicateTSN.Add(dataChunk.TSN, 1);

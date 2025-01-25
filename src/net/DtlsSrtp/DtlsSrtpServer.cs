@@ -44,6 +44,7 @@ using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Tls;
 using Org.BouncyCastle.Utilities;
+using SIPSorcery.net.DtlsSrtp;
 using SIPSorcery.Sys;
 
 namespace SIPSorcery.Net
@@ -267,19 +268,8 @@ namespace SIPSorcery.Net
             // Get available cipher suites
             int[] cipherSuites = GetCipherSuites();
 
-            // Convert server cipher suites to human-readable names
-            var serverCipherSuiteNames = cipherSuites
-                .Select(cs => DtlsUtils.CipherSuiteNames.ContainsKey(cs) ? DtlsUtils.CipherSuiteNames[cs] : cs.ToString())
-                .ToArray();
-
-            // Convert client-offered cipher suites to human-readable names
-            var clientCipherSuiteNames = this.mOfferedCipherSuites
-                .Select(cs => DtlsUtils.CipherSuiteNames.ContainsKey(cs) ? DtlsUtils.CipherSuiteNames[cs] : cs.ToString())
-                .ToArray();
-
             // Log the offered cipher suites by both server and client
-            logger.LogTrace("Server offered cipher suites:\n {ServerCipherSuites}", string.Join("\n ", serverCipherSuiteNames));
-            logger.LogTrace("Client offered cipher suites:\n {ClientCipherSuites}", string.Join("\n ", clientCipherSuiteNames));
+            logger.LogCipherSuitNames(cipherSuites, this.mOfferedCipherSuites);
             // Get available cipher suites
             for (int i = 0; i < cipherSuites.Length; ++i)
             {

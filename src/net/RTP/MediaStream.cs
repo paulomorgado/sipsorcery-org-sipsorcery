@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using Microsoft.Extensions.Logging;
+using SIPSorcery.net.RTP;
 using SIPSorcery.Sys;
 
 namespace SIPSorcery.Net
@@ -252,7 +253,7 @@ namespace SIPSorcery.Net
         {
             if (SecureContext != null)
             {
-                logger.LogTrace("Tried adding new SecureContext for media type {MediaType}, but one already existed", MediaType);
+                logger.LogSecureContextAlreadyExists(MediaType);
             }
 
             SecureContext = new SecureContext(protectRtp, unprotectRtp, protectRtcp, unprotectRtcp);
