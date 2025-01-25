@@ -103,7 +103,7 @@ namespace SIPSorcery.Net
                 }
                 catch (SocketException sockExcp)
                 {
-                    logger.LogError(sockExcp, "SocketException SendJpegFrame. {ErrorMessage}", sockExcp.Message);
+                    logger.LogRtpSocketExceptionSendJpegFrame(sockExcp.Message, sockExcp);
                 }
             }
         }
@@ -222,7 +222,7 @@ namespace SIPSorcery.Net
                 }
                 catch (SocketException sockExcp)
                 {
-                    logger.LogError(sockExcp, "SocketException SendVp8Frame.");
+                    logger.LogRtpSocketExceptionSendVp8Frame(sockExcp.Message, sockExcp);
                 }
             }
         }
@@ -277,7 +277,7 @@ namespace SIPSorcery.Net
                 if (format.ToVideoFormat().Codec == VideoCodecsEnum.VP8 ||
                     format.ToVideoFormat().Codec == VideoCodecsEnum.H264)
                 {
-                    logger.LogDebug("Video depacketisation codec set to {Codec} for SSRC {SSRC}.", format.ToVideoFormat().Codec, packet.Header.SyncSource);
+                    logger.LogRtpVideoCodecDepacketiserSet(format, packet.Header.SyncSource);
 
                     RtpVideoFramer = new RtpVideoFramer(format.ToVideoFormat().Codec, MaxReconstructedVideoFrameSize);
 
@@ -289,7 +289,7 @@ namespace SIPSorcery.Net
                 }
                 else
                 {
-                    logger.LogWarning("Video depacketisation logic for codec {CodecName} has not been implemented, PR's welcome!", format.Name());
+                    logger.LogRtpVideoCodecNotImplemented(format);
                 }
             }
         }
