@@ -491,7 +491,7 @@ namespace SIPSorcery.Media
 
                                 if (_streamSourceReader.BaseStream.Position >= _streamSourceReader.BaseStream.Length)
                                 {
-                                    Log.LogDebug("Send audio from stream completed.");
+                                    Log.LogSendAudioFromStreamCompleted();
                                     StopSendFromAudioStream();
                                 }
                             }

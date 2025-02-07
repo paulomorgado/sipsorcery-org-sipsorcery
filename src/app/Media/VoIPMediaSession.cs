@@ -183,13 +183,13 @@ namespace SIPSorcery.Media
             // the standard is very fuzzy in that area. See https://datatracker.ietf.org/doc/html/rfc3264#section-7 and note the "SHOULD" in the text.
 
             var audioFormat = audoFormats.First();
-            logger.LogDebug("Setting audio source format to {FormatID}:{Codec} {ClockRate} (RTP clock rate {RtpClockRate}).", audioFormat.FormatID, audioFormat.Codec, audioFormat.ClockRate, audioFormat.RtpClockRate);
+            logger.LogSettingAudioFormat(audioFormat.FormatID, audioFormat.Codec, audioFormat.ClockRate, audioFormat.RtpClockRate);
             Media.AudioSource?.SetAudioSourceFormat(audioFormat);
             _audioExtrasSource.SetAudioSourceFormat(audioFormat);
 
             if (AudioStream != null && AudioStream.LocalTrack.NoDtmfSupport == false)
             {
-                logger.LogDebug("Audio track negotiated DTMF payload ID {AudioStreamNegotiatedRtpEventPayloadID}.", AudioStream.NegotiatedRtpEventPayloadID);
+                logger.LogAudioTrackDtmfNegotiated(AudioStream.NegotiatedRtpEventPayloadID);
             }
         }
 
@@ -201,7 +201,7 @@ namespace SIPSorcery.Media
             // the standard is very fuzzy in that area. See https://datatracker.ietf.org/doc/html/rfc3264#section-7 and note the "SHOULD" in the text.
 
             var videoFormat = videoFormats.First();
-            logger.LogDebug("Setting video sink and source format to {VideoFormatID}:{VideoCodec}.", videoFormat.FormatID, videoFormat.Codec);
+            logger.LogSettingVideoFormat(videoFormat.FormatID, videoFormat.Codec);
             Media.VideoSource?.SetVideoSourceFormat(videoFormat);
             _videoTestPatternSource?.SetVideoSourceFormat(videoFormat);
         }

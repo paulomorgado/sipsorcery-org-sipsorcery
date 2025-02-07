@@ -115,7 +115,7 @@ namespace SIPSorcery.SIP.App
                         sipRequest.Body = mangledSDP;
                         sipRequest.Header.ContentLength = sipRequest.Body.Length;
 
-                        logger.LogDebug("SDP mangled for {Status} response from {RemoteSIPEndPoint}, adjusted address {RemoteEndPointAddress}.", sipRequest.Method, sipRequest.RemoteSIPEndPoint, bottomViaIPAddress);
+                        logger.LogSdpMangledRequest(sipRequest.Method, sipRequest.RemoteSIPEndPoint, bottomViaIPAddress);
                     }
                 }
             }
@@ -160,7 +160,7 @@ namespace SIPSorcery.SIP.App
                         sipResponse.Body = mangledSDP;
                         sipResponse.Header.ContentLength = sipResponse.Body.Length;
 
-                        logger.LogDebug("SDP mangled for {Status} response from {RemoteSIPEndPoint}, adjusted address {RemoteEndPointAddress}.", sipResponse.Status, sipResponse.RemoteSIPEndPoint, remoteEndPoint.Address);
+                        logger.LogSdpMangledResponse(sipResponse.Status, sipResponse.RemoteSIPEndPoint, remoteEndPoint.Address);
                     }
                 }
             }
