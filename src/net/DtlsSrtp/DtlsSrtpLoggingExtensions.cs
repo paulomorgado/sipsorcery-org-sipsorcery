@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.Net;
 
 namespace SIPSorcery.net.DtlsSrtp
@@ -28,16 +27,27 @@ namespace SIPSorcery.net.DtlsSrtp
         {
             if (logger.IsEnabled(LogLevel.Trace))
             {
-                // Convert server cipher suites to human-readable names
-                var serverCipherSuiteNames = serverCipherSuites
-                    .Select(cs => DtlsUtils.CipherSuiteNames.ContainsKey(cs) ? DtlsUtils.CipherSuiteNames[cs] : cs.ToString());
+                LogServerCipherSuitNames(logger, ConvertCipherSuitesToNames(serverCipherSuites));
+                LogClientCipherSuitNames(logger, ConvertCipherSuitesToNames(offeredCipherSuites));
 
-                // Convert client-offered cipher suites to human-readable names
-                var clientCipherSuiteNames = offeredCipherSuites
-                    .Select(cs => DtlsUtils.CipherSuiteNames.ContainsKey(cs) ? DtlsUtils.CipherSuiteNames[cs] : cs.ToString());
+                static string ConvertCipherSuitesToNames(int[] cipherSuites)
+                {
+                    string[] cipherSuiteNames = new string[cipherSuites.Length];
 
-                LogServerCipherSuitNames(logger, string.Join("\n ", serverCipherSuiteNames));
-                LogClientCipherSuitNames(logger, string.Join("\n ", clientCipherSuiteNames));
+                    for (int i = 0; i < cipherSuites.Length; i++)
+                    {
+                        if (DtlsUtils.CipherSuiteNames.TryGetValue(cipherSuites[i], out string value))
+                        {
+                            cipherSuiteNames[i] = value;
+                        }
+                        else
+                        {
+                            cipherSuiteNames[i] = cipherSuites[i].ToString();
+                        }
+                    }
+
+                    return string.Join("\n ", cipherSuiteNames);
+                }
             }
         }
     }
