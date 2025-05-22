@@ -15,6 +15,7 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -233,24 +234,38 @@ namespace SIPSorcery.Net
         /// <param name="buffer">The VP8 encoded payload.</param>
         public void SendVp8Frame(uint duration, int payloadTypeID, byte[] buffer)
         {
+            SendVp8Frame(duration, payloadTypeID, new ReadOnlySpan<byte>(buffer));
+        }
+
+        /// <summary>
+        /// Sends a VP8 frame as one or more RTP packets.
+        /// </summary>
+        /// <param name="duration"> The duration in timestamp units of the payload. Needs
+        /// to be based on a 90Khz clock.</param>
+        /// <param name="payloadTypeID">The payload ID to place in the RTP header.</param>
+        /// <param name="buffer">The VP8 encoded payload.</param>
+        public void SendVp8Frame(uint duration, int payloadTypeID, ReadOnlySpan<byte> buffer)
+        {
             if (CheckIfCanSendRtpRaw())
             {
                 try
                 {
-                    for (int index = 0; index * RTPSession.RTP_MAX_PAYLOAD < buffer.Length; index++)
+                    for (var index = 0; index * RTPSession.RTP_MAX_PAYLOAD < buffer.Length; index++)
                     {
-                        int offset = index * RTPSession.RTP_MAX_PAYLOAD;
-                        int payloadLength = (offset + RTPSession.RTP_MAX_PAYLOAD < buffer.Length) ? RTPSession.RTP_MAX_PAYLOAD : buffer.Length - offset;
+                        var offset = index * RTPSession.RTP_MAX_PAYLOAD;
+                        var payloadLength = (offset + RTPSession.RTP_MAX_PAYLOAD < buffer.Length) ? RTPSession.RTP_MAX_PAYLOAD : buffer.Length - offset;
 
-                        byte[] vp8HeaderBytes = (index == 0) ? new byte[] { 0x10 } : new byte[] { 0x00 };
-                        byte[] payload = new byte[payloadLength + vp8HeaderBytes.Length];
-                        Buffer.BlockCopy(vp8HeaderBytes, 0, payload, 0, vp8HeaderBytes.Length);
-                        Buffer.BlockCopy(buffer, offset, payload, vp8HeaderBytes.Length, payloadLength);
+                        using var memoryOwner = MemoryPool<byte>.Shared.Rent(payloadLength + 1);
+                        var payloadMemory = memoryOwner.Memory.Slice(0, payloadLength + 1);
+                        var payloadSpan = payloadMemory.Span;
 
-                        int markerBit = ((offset + payloadLength) >= buffer.Length) ? 1 : 0; // Set marker bit for the last packet in the frame.
+                        payloadSpan[0] = (index == 0) ? (byte)0x10 : (byte)0x00;
+                        buffer.Slice(offset, payloadLength).CopyTo(payloadSpan.Slice(1));
+
+                        var markerBit = ((offset + payloadLength) >= buffer.Length) ? 1 : 0; // Set marker bit for the last packet in the frame.
 
                         SetRtpHeaderExtensionValue(TransportWideCCExtension.RTP_HEADER_EXTENSION_URI, null);
-                        SendRtpRaw(payload, LocalTrack.Timestamp, markerBit, payloadTypeID, true);
+                        SendRtpRaw(payloadSpan, LocalTrack.Timestamp, markerBit, payloadTypeID, true);
                     }
                     LocalTrack.Timestamp += duration;
                 }
@@ -260,6 +275,7 @@ namespace SIPSorcery.Net
                 }
             }
         }
+
         /// <summary>
         /// 
         /// </summary>

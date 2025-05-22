@@ -381,6 +381,11 @@ namespace SIPSorcery.Net
 
         protected void SendRtpRaw(byte[] data, uint timestamp, int markerBit, int payloadType, Boolean checkDone, ushort? seqNum = null)
         {
+            SendRtpRaw(new ReadOnlySpan<byte>(data), timestamp, markerBit, payloadType, checkDone, seqNum);
+        }
+
+        protected void SendRtpRaw(ReadOnlySpan<byte> data, uint timestamp, int markerBit, int payloadType, Boolean checkDone, ushort? seqNum = null)
+        {
             if (checkDone || CheckIfCanSendRtpRaw())
             {
                 ProtectRtpPacket protectRtpPacket = SecureContext?.ProtectRtpPacket;
@@ -454,7 +459,7 @@ namespace SIPSorcery.Net
                     rtpPacket.Header.HeaderExtensionFlag = 0;
                 }
 
-                Buffer.BlockCopy(data, 0, rtpPacket.Payload, 0, data.Length);
+                data.CopyTo(rtpPacket.Payload.AsSpan(0, data.Length));
 
                 var rtpBuffer = rtpPacket.GetBytes();
 
