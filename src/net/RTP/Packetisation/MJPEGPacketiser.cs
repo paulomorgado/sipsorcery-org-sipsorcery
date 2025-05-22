@@ -220,7 +220,7 @@ namespace SIPSorcery.net.RTP.Packetisation
                 qTableHeader.SetValue(customData.MjpegHeaderQTable.lengthHigh, 2);
                 qTableHeader.SetValue(customData.MjpegHeaderQTable.lengthLow, 3);
 
-                var qtables = new byte[0];
+                var qtables = Array.Empty<byte>();
                 foreach (var qTable in customData.QTables)
                 {
                     qtables = qtables.Concat(qTable).ToArray();

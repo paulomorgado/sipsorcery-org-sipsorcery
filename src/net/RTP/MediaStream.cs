@@ -15,9 +15,11 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using SIPSorcery.Sys;
 
@@ -608,17 +610,20 @@ namespace SIPSorcery.Net
                 }
                 else
                 {
-                    byte[] sendBuffer = new byte[reportBuffer.Length + RTPSession.SRTP_MAX_PREFIX_LENGTH];
-                    Buffer.BlockCopy(reportBuffer, 0, sendBuffer, 0, reportBuffer.Length);
+                    var bufferLength = reportBuffer.Length + RTPSession.SRTP_MAX_PREFIX_LENGTH;
+                    var memoryOwner = MemoryPool<byte>.Shared.Rent(bufferLength);
+                    _ = MemoryMarshal.TryGetArray<byte>(memoryOwner.Memory, out var segment);
+                    Buffer.BlockCopy(reportBuffer, 0, segment.Array, 0, reportBuffer.Length);
 
-                    int rtperr = protectRtcpPacket(sendBuffer, sendBuffer.Length - RTPSession.SRTP_MAX_PREFIX_LENGTH, out int outBufLen);
+                    int rtperr = protectRtcpPacket(segment.Array, bufferLength - RTPSession.SRTP_MAX_PREFIX_LENGTH, out int outBufLen);
                     if (rtperr != 0)
                     {
+                        memoryOwner.Dispose();
                         logger.LogWarning("SRTP RTCP packet protection failed, result {RtpError}.", rtperr);
                     }
                     else
                     {
-                        rtpChannel.Send(sendOnSocket, ControlDestinationEndPoint, sendBuffer.AsMemory(0, outBufLen));
+                        rtpChannel.Send(sendOnSocket, ControlDestinationEndPoint, memoryOwner.Memory.Slice(0, outBufLen), memoryOwner);
                     }
                 }
             }

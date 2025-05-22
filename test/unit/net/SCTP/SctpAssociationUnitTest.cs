@@ -275,7 +275,15 @@ namespace SIPSorcery.Net.UnitTests
 
         public override void Send(string associationID, byte[] buffer, int offset, int length)
         {
-            _output.Add(buffer.Skip(offset).Take(length).ToArray());
+            Send(associationID, buffer.AsMemory(), null);
+        }
+
+        public override void Send(string associationID, Memory<byte> buffer, IDisposable memoryOwner = null)
+        {
+            using (memoryOwner)
+            {
+                _output.Add(buffer.ToArray());
+            }
         }
 
         public void Close()

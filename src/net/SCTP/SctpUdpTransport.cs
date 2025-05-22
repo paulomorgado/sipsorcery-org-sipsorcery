@@ -135,10 +135,16 @@ namespace SIPSorcery.Net
         }
 
         public override void Send(string associationID, byte[] buffer, int offset, int length)
+            => base.Send(associationID, buffer, offset, length);
+
+        public override void Send(string associationID, Memory<byte> buffer, IDisposable? memoryOwner = null)
         {
-            if (_associations.TryGetValue(associationID, out var assoc))
+            using (memoryOwner)
             {
-                _udpEncapSocket.SendTo(buffer, offset, length, SocketFlags.None, assoc.Destination);
+                if (_associations.TryGetValue(associationID, out var assoc))
+                {
+                    _udpEncapSocket.SendTo(buffer.Span, SocketFlags.None, assoc.Destination);
+                }
             }
         }
 
@@ -150,17 +156,17 @@ namespace SIPSorcery.Net
         /// <param name="destinationPort">The SCTP destination port.</param>
         /// <returns>An SCTP association.</returns>
         public SctpAssociation Associate(
-            IPEndPoint destination, 
-            ushort sourcePort, 
-            ushort destinationPort, 
+            IPEndPoint destination,
+            ushort sourcePort,
+            ushort destinationPort,
             ushort numberOutboundStreams = SctpAssociation.DEFAULT_NUMBER_OUTBOUND_STREAMS,
             ushort numberInboundStreams = SctpAssociation.DEFAULT_NUMBER_INBOUND_STREAMS)
         {
             var association = new SctpAssociation(
-                this, 
-                destination, 
-                sourcePort, 
-                destinationPort, 
+                this,
+                destination,
+                sourcePort,
+                destinationPort,
                 DEFAULT_UDP_MTU,
                 numberOutboundStreams,
                 numberInboundStreams);

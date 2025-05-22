@@ -371,10 +371,19 @@ namespace SIPSorcery.Net
         /// <param name="offset">The position in the buffer to send from.</param>
         /// <param name="length">The number of bytes to send.</param>
         public override void Send(string associationID, byte[] buffer, int offset, int length)
+            => base.Send(associationID, buffer, offset, length);
+
+        /// <summary>
+        /// This method is called by the SCTP association when it wants to send an SCTP packet
+        /// to the remote party.
+        /// </summary>
+        /// <param name="associationID">Not used for the DTLS transport.</param>
+        /// <param name="buffer">The buffer containing the data to send.</param>
+        public override void Send(string associationID, Memory<byte> buffer, IDisposable? memoryOwner = null)
         {
-            if (length > maxMessageSize)
+            if (buffer.Length > maxMessageSize)
             {
-                throw new ApplicationException($"RTCSctpTransport was requested to send data of length {length} " +
+                throw new ApplicationException($"RTCSctpTransport was requested to send data of length {buffer.Length} " +
                     $" that exceeded the maximum allowed message size of {maxMessageSize}.");
             }
 
@@ -384,7 +393,7 @@ namespace SIPSorcery.Net
                 {
                     if (!_isClosed)
                     {
-                        transport.Send(buffer, offset, length);
+                        transport.Send(buffer.Span);
                     }
                 }
             }
