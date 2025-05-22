@@ -1799,7 +1799,7 @@ namespace SIPSorcery.Net
             dtlsHandle.OnDataReady += (buf) =>
             {
                 //logger.LogDebug($"DTLS transport sending {buf.Length} bytes to {AudioDestinationEndPoint}.");
-                rtpChannel.Send(RTPChannelSocketsEnum.RTP, PrimaryStream.DestinationEndPoint, buf);
+                rtpChannel.Send(RTPChannelSocketsEnum.RTP, PrimaryStream.DestinationEndPoint, buf.AsMemory());
             };
 
             var handshakeResult = dtlsHandle.DoHandshake(out var handshakeError);

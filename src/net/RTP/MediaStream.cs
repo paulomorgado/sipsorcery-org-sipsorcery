@@ -458,7 +458,7 @@ namespace SIPSorcery.Net
 
                 if (protectRtpPacket == null)
                 {
-                    rtpChannel.Send(RTPChannelSocketsEnum.RTP, DestinationEndPoint, rtpBuffer);
+                    rtpChannel.Send(RTPChannelSocketsEnum.RTP, DestinationEndPoint, rtpBuffer.AsMemory());
                 }
                 else
                 {
@@ -469,7 +469,7 @@ namespace SIPSorcery.Net
                     }
                     else
                     {
-                        rtpChannel.Send(RTPChannelSocketsEnum.RTP, DestinationEndPoint, rtpBuffer.Take(outBufLen).ToArray());
+                        rtpChannel.Send(RTPChannelSocketsEnum.RTP, DestinationEndPoint, rtpBuffer.AsMemory(0, outBufLen));
                     }
                 }
                 m_lastRtpTimestamp = timestamp;
@@ -604,7 +604,7 @@ namespace SIPSorcery.Net
 
                 if (protectRtcpPacket == null)
                 {
-                    rtpChannel.Send(sendOnSocket, ControlDestinationEndPoint, reportBuffer);
+                    rtpChannel.Send(sendOnSocket, ControlDestinationEndPoint, reportBuffer.AsMemory());
                 }
                 else
                 {
@@ -618,7 +618,7 @@ namespace SIPSorcery.Net
                     }
                     else
                     {
-                        rtpChannel.Send(sendOnSocket, ControlDestinationEndPoint, sendBuffer.Take(outBufLen).ToArray());
+                        rtpChannel.Send(sendOnSocket, ControlDestinationEndPoint, sendBuffer.AsMemory(0, outBufLen));
                     }
                 }
             }

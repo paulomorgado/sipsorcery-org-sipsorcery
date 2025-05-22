@@ -18,6 +18,7 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
@@ -288,6 +289,19 @@ namespace SIPSorcery.Net
         private bool m_rtpReceiverStarted = false;
         private bool m_controlReceiverStarted = false;
         private bool m_isClosed;
+        private readonly EventHandler<SocketAsyncEventArgs>? m_sendHandler = (s, e) =>
+        {
+            if (e.SocketError != SocketError.Success)
+            {
+                // Socket errors do not trigger a close. The reason being that there are genuine situations that can cause them during
+                // normal RTP operation. For example:
+                // - the RTP connection may start sending before the remote socket starts listening,
+                // - an on hold, transfer, etc. operation can change the RTP end point which could result in socket errors from the old
+                //   or new socket during the transition.
+                logger.LogWarning("SocketException RTPChannel EndSendTo ({SocketErrorCode})");
+            }
+        };
+
 
         public Socket RtpSocket { get; private set; }
 
@@ -465,7 +479,23 @@ namespace SIPSorcery.Net
         /// <param name="buffer">The data to send.</param>
         /// <returns>The result of initiating the send. This result does not reflect anything about
         /// whether the remote party received the packet or not.</returns>
+        [Obsolete("Use Send(RTPChannelSocketsEnum, IPEndPoint, Memory<byte>, IDisposable?) instead.", true)]
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public virtual SocketError Send(RTPChannelSocketsEnum sendOn, IPEndPoint dstEndPoint, byte[] buffer)
+        {
+            return Send(sendOn, dstEndPoint, new Memory<byte>(buffer, 0, buffer.Length), null);
+        }
+
+        /// <summary>
+        /// The send method for the RTP channel.
+        /// </summary>
+        /// <param name="sendOn">The socket to send on. Can be the RTP or Control socket.</param>
+        /// <param name="dstEndPoint">The destination end point to send to.</param>
+        /// <param name="buffer">The data to send.</param>
+        /// <param name="memoryOwner">The onwer of the <paramref name="buffer"/> memory.</param>
+        /// <returns>The result of initiating the send. This result does not reflect anything about
+        /// whether the remote party received the packet or not.</returns>
+        public virtual SocketError Send(RTPChannelSocketsEnum sendOn, IPEndPoint dstEndPoint, Memory<byte> buffer, IDisposable? memoryOwner = null)
         {
             if (m_isClosed)
             {
@@ -475,7 +505,7 @@ namespace SIPSorcery.Net
             {
                 throw new ArgumentException("dstEndPoint", "An empty destination was specified to Send in RTPChannel.");
             }
-            else if (buffer == null || buffer.Length == 0)
+            else if (buffer.IsEmpty)
             {
                 throw new ArgumentException("buffer", "The buffer must be set and non empty for Send in RTPChannel.");
             }
@@ -518,7 +548,8 @@ namespace SIPSorcery.Net
                         m_rtpReceiver.BeginReceiveFrom();
                     }
 
-                    sendSocket.BeginSendTo(buffer, 0, buffer.Length, SocketFlags.None, dstEndPoint, EndSendTo, sendSocket);
+                    sendSocket.SendToAsync(buffer, memoryOwner, SocketFlags.None, dstEndPoint, m_sendHandler);
+
                     return SocketError.Success;
                 }
                 catch (ObjectDisposedException) // Thrown when socket is closed. Can be safely ignored.
@@ -534,34 +565,6 @@ namespace SIPSorcery.Net
                     logger.LogError(excp, "Exception RTPChannel.Send. {ErrorMesssage}", excp.Message);
                     return SocketError.Fault;
                 }
-            }
-        }
-
-        /// <summary>
-        /// Ends an async send on one of the channel's sockets.
-        /// </summary>
-        /// <param name="ar">The async result to complete the send with.</param>
-        private void EndSendTo(IAsyncResult ar)
-        {
-            try
-            {
-                Socket sendSocket = (Socket)ar.AsyncState;
-                int bytesSent = sendSocket.EndSendTo(ar);
-            }
-            catch (SocketException sockExcp)
-            {
-                // Socket errors do not trigger a close. The reason being that there are genuine situations that can cause them during
-                // normal RTP operation. For example:
-                // - the RTP connection may start sending before the remote socket starts listening,
-                // - an on hold, transfer, etc. operation can change the RTP end point which could result in socket errors from the old
-                //   or new socket during the transition.
-                logger.LogWarning(sockExcp, "SocketException RTPChannel EndSendTo ({SocketErrorCode}). {Message}", sockExcp.ErrorCode, sockExcp.Message);
-            }
-            catch (ObjectDisposedException) // Thrown when socket is closed. Can be safely ignored.
-            { }
-            catch (Exception excp)
-            {
-                logger.LogError(excp, "Exception RTPChannel EndSendTo. {Message}", excp.Message);
             }
         }
 

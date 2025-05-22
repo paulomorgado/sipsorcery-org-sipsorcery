@@ -67,6 +67,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -124,6 +125,18 @@ namespace SIPSorcery.Net
         private const int CONNECTED_CHECK_PERIOD = 3;       // The period in seconds to send STUN connectivity checks once connected. 
         public const string SDP_MID = "0";
         public const int SDP_MLINE_INDEX = 0;
+        private readonly EventHandler<SocketAsyncEventArgs>? m_sendOverTcpHandler = (s, e) =>
+        {
+            if (e.SocketError != SocketError.Success)
+            {
+                // Socket errors do not trigger a close. The reason being that there are genuine situations that can cause them during
+                // normal RTP operation. For example:
+                // - the RTP connection may start sending before the remote socket starts listening,
+                // - an on hold, transfer, etc. operation can change the RTP end point which could result in socket errors from the old
+                //   or new socket during the transition.
+                logger.LogWarning("SocketException RTPIceChannel EndSendToTCP ({SocketErrorCode}).", e.SocketError);
+            }
+        };
 
         public class IceTcpReceiver : UdpReceiver
         {
@@ -1848,12 +1861,12 @@ namespace SIPSorcery.Net
             {
                 IPEndPoint relayServerEP = candidatePair.LocalCandidate.IceServer.ServerEndPoint;
                 var protocol = candidatePair.LocalCandidate.IceServer.Protocol;
-                SendRelay(protocol, candidatePair.RemoteCandidate.DestinationEndPoint, stunReqBytes, relayServerEP, candidatePair.LocalCandidate.IceServer);
+                SendRelay(protocol, candidatePair.RemoteCandidate.DestinationEndPoint, stunReqBytes.AsMemory(), null, relayServerEP, candidatePair.LocalCandidate.IceServer);
             }
             else
             {
                 IPEndPoint remoteEndPoint = candidatePair.RemoteCandidate.DestinationEndPoint;
-                var sendResult = base.Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunReqBytes);
+                var sendResult = base.Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunReqBytes.AsMemory());
 
                 if (sendResult != SocketError.Success)
                 {
@@ -2119,7 +2132,7 @@ namespace SIPSorcery.Net
 
                 STUNMessage stunErrResponse = new STUNMessage(STUNMessageTypesEnum.BindingErrorResponse);
                 stunErrResponse.Header.TransactionId = bindingRequest.Header.TransactionId;
-                Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunErrResponse.ToByteBuffer(null, false));
+                Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunErrResponse.ToByteBuffer(null, false).AsMemory(), null);
 
                 OnStunMessageSent?.Invoke(stunErrResponse, remoteEndPoint, false);
             }
@@ -2133,7 +2146,7 @@ namespace SIPSorcery.Net
                     logger.LogWarning("ICE RTP channel STUN binding request from {RemoteEndPoint} failed an integrity check, rejecting.", remoteEndPoint);
                     STUNMessage stunErrResponse = new STUNMessage(STUNMessageTypesEnum.BindingErrorResponse);
                     stunErrResponse.Header.TransactionId = bindingRequest.Header.TransactionId;
-                    Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunErrResponse.ToByteBuffer(null, false));
+                    Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunErrResponse.ToByteBuffer(null, false).AsMemory(), null);
 
                     OnStunMessageSent?.Invoke(stunErrResponse, remoteEndPoint, false);
                 }
@@ -2186,7 +2199,7 @@ namespace SIPSorcery.Net
                         logger.LogWarning("ICE RTP channel STUN request matched a remote candidate but NOT a checklist entry.");
                         STUNMessage stunErrResponse = new STUNMessage(STUNMessageTypesEnum.BindingErrorResponse);
                         stunErrResponse.Header.TransactionId = bindingRequest.Header.TransactionId;
-                        Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunErrResponse.ToByteBuffer(null, false));
+                        Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunErrResponse.ToByteBuffer(null, false).AsMemory(), null);
 
                         OnStunMessageSent?.Invoke(stunErrResponse, remoteEndPoint, false);
                     }
@@ -2222,12 +2235,12 @@ namespace SIPSorcery.Net
                         if (wasRelayed)
                         {
                             var protocol = matchingChecklistEntry.LocalCandidate.IceServer.Protocol;
-                            SendRelay(protocol, remoteEndPoint, stunRespBytes, matchingChecklistEntry.LocalCandidate.IceServer.ServerEndPoint, matchingChecklistEntry.LocalCandidate.IceServer);
+                            SendRelay(protocol, remoteEndPoint, stunRespBytes.AsMemory(), null, matchingChecklistEntry.LocalCandidate.IceServer.ServerEndPoint, matchingChecklistEntry.LocalCandidate.IceServer);
                             OnStunMessageSent?.Invoke(stunResponse, remoteEndPoint, true);
                         }
                         else
                         {
-                            Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunRespBytes);
+                            Send(RTPChannelSocketsEnum.RTP, remoteEndPoint, stunRespBytes.AsMemory(), null);
                             OnStunMessageSent?.Invoke(stunResponse, remoteEndPoint, false);
                         }
                     }
@@ -2310,9 +2323,7 @@ namespace SIPSorcery.Net
                 stunReqBytes = stunRequest.ToByteBuffer(null, false);
             }
 
-            var sendResult = iceServer.Protocol == ProtocolType.Tcp ?
-                                SendOverTCP(iceServer, stunReqBytes) :
-                                base.Send(RTPChannelSocketsEnum.RTP, iceServer.ServerEndPoint, stunReqBytes);
+            var sendResult = Send(iceServer, stunReqBytes.AsMemory(), null);
 
             if (sendResult != SocketError.Success)
             {
@@ -2356,9 +2367,7 @@ namespace SIPSorcery.Net
                 allocateReqBytes = allocateRequest.ToByteBuffer(null, false);
             }
 
-            var sendResult = iceServer.Protocol == ProtocolType.Tcp ?
-                                SendOverTCP(iceServer, allocateReqBytes) :
-                                base.Send(RTPChannelSocketsEnum.RTP, iceServer.ServerEndPoint, allocateReqBytes);
+            var sendResult = Send(iceServer, allocateReqBytes.AsMemory(), null);
 
             if (sendResult != SocketError.Success)
             {
@@ -2404,9 +2413,7 @@ namespace SIPSorcery.Net
                 allocateReqBytes = allocateRequest.ToByteBuffer(null, false);
             }
 
-            var sendResult = iceServer.Protocol == ProtocolType.Tcp ?
-                                SendOverTCP(iceServer, allocateReqBytes) :
-                                base.Send(RTPChannelSocketsEnum.RTP, iceServer.ServerEndPoint, allocateReqBytes);
+            var sendResult = Send(iceServer, allocateReqBytes.AsMemory(), null);
 
             if (sendResult != SocketError.Success)
             {
@@ -2446,9 +2453,7 @@ namespace SIPSorcery.Net
                 createPermissionReqBytes = permissionsRequest.ToByteBuffer(null, false);
             }
 
-            var sendResult = iceServer.Protocol == ProtocolType.Tcp ?
-                                SendOverTCP(iceServer, createPermissionReqBytes) :
-                                base.Send(RTPChannelSocketsEnum.RTP, iceServer.ServerEndPoint, createPermissionReqBytes);
+            var sendResult = Send(iceServer, createPermissionReqBytes.AsMemory(), null);
 
             if (sendResult != SocketError.Success)
             {
@@ -2463,7 +2468,14 @@ namespace SIPSorcery.Net
             return sendResult;
         }
 
+        [Obsolete("Use SendOverTCP(IceServer, Memory<byte>, IDisposable?) instead.", true)]
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected virtual SocketError SendOverTCP(IceServer iceServer, byte[] buffer)
+        {
+            return SendOverTCP(iceServer, buffer.AsMemory(), null);
+        }
+
+        protected virtual SocketError SendOverTCP(IceServer iceServer, Memory<byte> buffer, IDisposable? memoryOwner = null)
         {
             IPEndPoint dstEndPoint = iceServer?.ServerEndPoint;
             if (IsClosed)
@@ -2474,7 +2486,7 @@ namespace SIPSorcery.Net
             {
                 throw new ArgumentException("dstEndPoint", "An empty destination was specified to Send in RTPChannel.");
             }
-            else if (buffer == null || buffer.Length == 0)
+            else if (buffer.IsEmpty)
             {
                 throw new ArgumentException("buffer", "The buffer must be set and non empty for Send in RTPChannel.");
             }
@@ -2502,10 +2514,7 @@ namespace SIPSorcery.Net
                         dstEndPoint = new IPEndPoint(dstEndPoint.Address.MapToIPv6(), dstEndPoint.Port);
                     }
 
-                    Func<IPEndPoint, IPEndPoint, bool> equals = (IPEndPoint e1, IPEndPoint e2) =>
-                    {
-                        return e1.Port == e2.Port && e1.Address.Equals(e2.Address);
-                    };
+                    static bool equals(IPEndPoint e1, IPEndPoint e2) => e1.Port == e2.Port && e1.Address.Equals(e2.Address);
 
                     if (!sendSocket.Connected || !(sendSocket.RemoteEndPoint is IPEndPoint) || !equals(sendSocket.RemoteEndPoint as IPEndPoint, dstEndPoint))
                     {
@@ -2526,7 +2535,8 @@ namespace SIPSorcery.Net
                         rtpTcpReceiver.BeginReceiveFrom();
                     }
 
-                    sendSocket.BeginSendTo(buffer, 0, buffer.Length, SocketFlags.None, dstEndPoint, EndSendToTCP, sendSocket);
+                    sendSocket.SendToAsync(buffer, memoryOwner, SocketFlags.None, dstEndPoint, m_sendOverTcpHandler);
+
                     return SocketError.Success;
                 }
                 catch (ObjectDisposedException) // Thrown when socket is closed. Can be safely ignored.
@@ -2542,30 +2552,6 @@ namespace SIPSorcery.Net
                     logger.LogError(excp, "Exception RTPIceChannel.SendOverTCP. {ErrorMessage}", excp.Message);
                     return SocketError.Fault;
                 }
-            }
-        }
-
-        protected virtual void EndSendToTCP(IAsyncResult ar)
-        {
-            try
-            {
-                Socket sendSocket = (Socket)ar.AsyncState;
-                int bytesSent = sendSocket.EndSendTo(ar);
-            }
-            catch (SocketException sockExcp)
-            {
-                // Socket errors do not trigger a close. The reason being that there are genuine situations that can cause them during
-                // normal RTP operation. For example:
-                // - the RTP connection may start sending before the remote socket starts listening,
-                // - an on hold, transfer, etc. operation can change the RTP end point which could result in socket errors from the old
-                //   or new socket during the transition.
-                logger.LogWarning(sockExcp, "SocketException RTPIceChannel EndSendToTCP ({SocketErrorCode}). {ErrorMessage}", sockExcp.SocketErrorCode, sockExcp.Message);
-            }
-            catch (ObjectDisposedException) // Thrown when socket is closed. Can be safely ignored.
-            { }
-            catch (Exception excp)
-            {
-                logger.LogError(excp, "Exception RTPIceChannel EndSendToTCP. {ErrorMessage}", excp.Message);
             }
         }
 
@@ -2640,16 +2626,19 @@ namespace SIPSorcery.Net
         /// <param name="buffer">The data to send to the peer.</param>
         /// <param name="relayEndPoint">The TURN server end point to send the relayed request to.</param>
         /// <returns></returns>
-        private SocketError SendRelay(ProtocolType protocol, IPEndPoint dstEndPoint, byte[] buffer, IPEndPoint relayEndPoint, IceServer iceServer)
+        private SocketError SendRelay(ProtocolType protocol, IPEndPoint dstEndPoint, Memory<byte> buffer, IDisposable? memoryOwner, IPEndPoint relayEndPoint, IceServer iceServer)
         {
             STUNMessage sendReq = new STUNMessage(STUNMessageTypesEnum.SendIndication);
             sendReq.AddXORPeerAddressAttribute(dstEndPoint.Address, dstEndPoint.Port);
-            sendReq.Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Data, buffer));
+            using (memoryOwner)
+            {
+                sendReq.Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Data, buffer.ToArray()));
+            }
 
             var request = sendReq.ToByteBuffer(null, false);
             var sendResult = protocol == ProtocolType.Tcp ?
-                SendOverTCP(iceServer, request) :
-                base.Send(RTPChannelSocketsEnum.RTP, relayEndPoint, request);
+                SendOverTCP(iceServer, request.ToArray(), memoryOwner) :
+                base.Send(RTPChannelSocketsEnum.RTP, relayEndPoint, request.AsMemory(), null);
 
             if (sendResult != SocketError.Success)
             {
@@ -2714,24 +2703,40 @@ namespace SIPSorcery.Net
         /// <param name="sendOn">The socket to send on. Can be the RTP or Control socket.</param>
         /// <param name="dstEndPoint">The destination end point to send to.</param>
         /// <param name="buffer">The data to send.</param>
+        /// <param name="memoryOwner">The onwer of the <paramref name="buffer"/> memory.</param>
         /// <returns>The result of initiating the send. This result does not reflect anything about
         /// whether the remote party received the packet or not.</returns>
-        public override SocketError Send(RTPChannelSocketsEnum sendOn, IPEndPoint dstEndPoint, byte[] buffer)
+        public override SocketError Send(RTPChannelSocketsEnum sendOn, IPEndPoint dstEndPoint, Memory<byte> buffer, IDisposable? memoryOwner = null)
         {
-            if (NominatedEntry != null && NominatedEntry.LocalCandidate.type == RTCIceCandidateType.relay &&
-                NominatedEntry.LocalCandidate.IceServer != null &&
-                NominatedEntry.RemoteCandidate.DestinationEndPoint.Address.Equals(dstEndPoint.Address) &&
-                NominatedEntry.RemoteCandidate.DestinationEndPoint.Port == dstEndPoint.Port)
+            if (NominatedEntry is
+                {
+                    LocalCandidate:
+                    {
+                        type: RTCIceCandidateType.relay,
+                        IceServer: { } iceServer
+                    },
+                    RemoteCandidate:
+                    {
+                        DestinationEndPoint: { } remoteEndPoint
+                    }
+                } &&
+                remoteEndPoint.Port == dstEndPoint.Port &&
+                remoteEndPoint.Address.Equals(dstEndPoint.Address))
             {
                 // A TURN relay channel is being used to communicate with the remote peer.
-                var protocol = NominatedEntry.LocalCandidate.IceServer.Protocol;
-                var serverEndPoint = NominatedEntry.LocalCandidate.IceServer.ServerEndPoint;
-                return SendRelay(protocol, dstEndPoint, buffer, serverEndPoint, NominatedEntry.LocalCandidate.IceServer);
+                var protocol = iceServer.Protocol;
+                var serverEndPoint = iceServer.ServerEndPoint;
+                return SendRelay(protocol, dstEndPoint, buffer, memoryOwner, serverEndPoint, iceServer);
             }
             else
             {
-                return base.Send(sendOn, dstEndPoint, buffer);
+                return base.Send(sendOn, dstEndPoint, buffer, memoryOwner);
             }
         }
+
+        private SocketError Send(IceServer iceServer, Memory<byte> buffer, IDisposable? memoryOwner)
+            => iceServer.Protocol == ProtocolType.Tcp ?
+                SendOverTCP(iceServer, buffer, memoryOwner) :
+                base.Send(RTPChannelSocketsEnum.RTP, iceServer.ServerEndPoint, buffer, memoryOwner);
     }
 }
