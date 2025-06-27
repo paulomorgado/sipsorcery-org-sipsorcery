@@ -157,22 +157,35 @@ public class IceServerResolver
     /// </summary>
     public async Task WaitForAllIceServersAsync(TimeSpan? timeout = null)
     {
-        var tasks = _iceServers.Values
-            .Select(s => s.DnsResolutionTask ?? Task.CompletedTask)
-            .ToArray();
-
-        var all = Task.WhenAll(tasks);
-        if (timeout.HasValue)
+        var tasks = new List<Task>();
+        foreach (var server in _iceServers.Values)
         {
-            if (await Task.WhenAny(all, Task.Delay(timeout.Value)).ConfigureAwait(false) != all)
+            if (server.DnsResolutionTask != null && !server.DnsResolutionTask.IsCompleted)
             {
-                throw new TimeoutException(
-                  $"Timed out waiting {timeout.Value} for ICE server DNS resolutions");
+                tasks.Add(server.DnsResolutionTask);
             }
         }
 
-        // propagate any resolution exception
-        await all.ConfigureAwait(false);
+        if (tasks.Count == 0)
+        {
+            return;
+        }
+
+        var allTasks = (tasks.Count == 1) ? tasks[0] : Task.WhenAll(tasks);
+
+        if (timeout.HasValue)
+        {
+            Task timeoutTask = Task.Delay(timeout.Value);
+            Task finished = await Task.WhenAny(allTasks, timeoutTask).ConfigureAwait(false);
+            if (finished == timeoutTask)
+            {
+                throw new TimeoutException($"Timed out waiting {timeout.Value} for ICE server DNS resolutions");
+            }
+        }
+        else
+        {
+            await allTasks.ConfigureAwait(false);
+        }
     }
 }
 
