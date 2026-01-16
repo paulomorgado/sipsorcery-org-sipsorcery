@@ -2,6 +2,7 @@
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Tls;
+using SIPSorcery.Net.SharpSRTP.DTLSSRTP;
 
 namespace SIPSorcery.Net;
 

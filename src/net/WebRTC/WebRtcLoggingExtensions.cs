@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Crypto.Tls;
+using SIPSorcery.Net.SharpSRTP.DTLS;
 
 namespace SIPSorcery.Net;
 
@@ -545,8 +546,8 @@ internal static partial class WebRtcLoggingExtensions
         Message = "DTLS unexpected {alertLevel} alert {alertType}{alertMsg}")]
     public static partial void LogWebRtcDtlsAlert(
         this ILogger logger,
-        AlertLevelsEnum alertLevel,
-        AlertTypesEnum alertType,
+        TlsAlertLevelsEnum alertLevel,
+        TlsAlertTypesEnum alertType,
         string alertMsg);
 
     [LoggerMessage(

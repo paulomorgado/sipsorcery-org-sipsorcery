@@ -14,6 +14,7 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
+using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Tls.Crypto.Impl.BC;
 using SIPSorcery.UnitTests;
 using Xunit;
@@ -99,7 +100,7 @@ namespace SIPSorcery.Net.IntegrationTests
 #pragma warning restore SYSLIB0057
 #endif
             Assert.NotNull(cert);
-            var key = DtlsUtils.LoadPrivateKeyResource(cert);
+            var key = DotNetUtilities.GetKeyPair(cert.PrivateKey).Private;
             Assert.NotNull(key);
         }
 

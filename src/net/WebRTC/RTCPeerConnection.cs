@@ -34,9 +34,22 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Net;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using Org.BouncyCastle.Tls;
+using Org.BouncyCastle.Tls.Crypto.Impl.BC;
+using SIPSorcery.Net.SharpSRTP.DTLS;
+using SIPSorcery.Net.SharpSRTP.DTLSSRTP;
 using SIPSorcery.SIP.App;
 using SIPSorcery.Sys;
-using System.Net;
 
 namespace SIPSorcery.Net;
 
@@ -1341,7 +1354,8 @@ public class RTCPeerConnection : RTPSession, IRTCPeerConnection
                     if (_dtlsHandle is { })
                     {
                         //logger.LogDebug($"DTLS transport received {buffer.Length} bytes from {AudioDestinationEndPoint}.");
-                        _dtlsHandle.WriteToRecvStream(buffer.Span);
+                        //TODO: Optimize to avoid array Allocation
+                        _dtlsHandle.WriteToRecvStream(buffer.ToArray());
                     }
                     else
                     {
@@ -1821,9 +1835,9 @@ public class RTCPeerConnection : RTPSession, IRTCPeerConnection
     /// <param name="alertLevel">The level of the alert: warning or critical.</param>
     /// <param name="alertType">The type of the alert.</param>
     /// <param name="alertDescription">An optional description for the alert.</param>
-    private void OnDtlsAlert(AlertLevelsEnum alertLevel, AlertTypesEnum alertType, string alertDescription)
+    private void OnDtlsAlert(TlsAlertLevelsEnum alertLevel, TlsAlertTypesEnum alertType, string alertDescription)
     {
-        if (alertType == AlertTypesEnum.close_notify)
+        if (alertType == TlsAlertTypesEnum.CloseNotify)
         {
             logger.LogWebRtcSctpTransportClose();
 

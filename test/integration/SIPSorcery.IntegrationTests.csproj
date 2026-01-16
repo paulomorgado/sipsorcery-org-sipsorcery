@@ -6,6 +6,7 @@
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <NoWarn>$(NoWarn);CS0618;NU1504</NoWarn>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+    <LangVersion>14.0</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,7 +28,18 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
-  
+
+  <!-- Polyfills for older frameworks. -->
+  <ItemGroup>
+    <PackageReference Include="Meziantou.Polyfill" Version="1.0.84">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <PropertyGroup>
+    <MeziantouPolyfill_ExcludedPolyfills>M:System.Enum.IsDefined``1(``0)</MeziantouPolyfill_ExcludedPolyfills>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(TargetFramework)' == 'net462'">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net462" Version="1.0.3">
       <PrivateAssets>all</PrivateAssets>

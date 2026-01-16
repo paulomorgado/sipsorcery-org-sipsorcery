@@ -19,596 +19,150 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Tls;
+using SIPSorcery.Net.SharpSRTP.DTLS;
+using SIPSorcery.Net.SharpSRTP.DTLSSRTP;
+using SIPSorcery.Net.SharpSRTP.SRTP;
 using SIPSorcery.Sys;
 
 namespace SIPSorcery.Net;
 
-public class DtlsSrtpTransport : DatagramTransport, IDisposable
+public delegate void OnDataReadyEvent(byte[] data);
+public delegate void OnDtlsAlertEvent(TlsAlertLevelsEnum alertLevel, TlsAlertTypesEnum alertType, string alertDescription);
+
+public class DtlsSrtpTransport : DatagramTransport
 {
-    public const int DEFAULT_RETRANSMISSION_WAIT_MILLIS = 100;
-    public const int DEFAULT_MTU = 1500;
-    public const int MIN_IP_OVERHEAD = 20;
-    public const int MAX_IP_OVERHEAD = MIN_IP_OVERHEAD + 64;
-    public const int UDP_OVERHEAD = 8;
-    public const int DEFAULT_TIMEOUT_MILLISECONDS = 20000;
+    public const int MAXIMUM_MTU = 1472; // 1500 - 20 (IP) - 8 (UDP)
     public const int DTLS_RETRANSMISSION_CODE = -1;
-    public const int DTLS_RECEIVE_ERROR_CODE = -2;
 
-    private static readonly ILogger logger = Log.Logger;
+    private IDtlsSrtpPeer _connection;
 
-    private static readonly Random random = new Random();
+    private ConcurrentQueue<byte[]> _data = new ConcurrentQueue<byte[]>();
+    private Certificate _peerCertificate;
 
-    private IPacketTransformer? srtpEncoder;
-    private IPacketTransformer? srtpDecoder;
-    private IPacketTransformer? srtcpEncoder;
-    private IPacketTransformer? srtcpDecoder;
-    private IDtlsSrtpPeer connection;
+    public DatagramTransport Transport { get; internal set; }
+    public bool IsClient { get { return _connection is DtlsSrtpClient; } }
+    public SrtpKeys Keys { get; private set; }
 
-    /// <summary>The collection of chunks to be written.</summary>
-    private BlockingCollection<byte[]> _chunks = new BlockingCollection<byte[]>(new ConcurrentQueue<byte[]>());
+    public SrtpSessionContext Context { get; private set; }
 
-    public DtlsTransport? Transport { get; private set; }
+    public int TimeoutMilliseconds { get { return _connection.TimeoutMilliseconds; } set { _connection.TimeoutMilliseconds = value; } }
 
-    /// <summary>
-    /// Sets the period in milliseconds that the handshake attempt will timeout
-    /// after.
-    /// </summary>
-    public int TimeoutMilliseconds = DEFAULT_TIMEOUT_MILLISECONDS;
+    public event OnDataReadyEvent OnDataReady;
 
-    /// <summary>
-    /// Sets the period in milliseconds that receive will wait before try retransmission
-    /// </summary>
-    public int RetransmissionMilliseconds = DEFAULT_RETRANSMISSION_WAIT_MILLIS;
+    public event OnDtlsAlertEvent OnAlert;
 
-    public ReadOnlyMemoryAction<byte>? OnDataReady;
-
-    /// <summary>
-    /// Parameters:
-    ///  - alert level,
-    ///  - alert type,
-    ///  - alert description.
-    /// </summary>
-    public event Action<AlertLevelsEnum, AlertTypesEnum, string>? OnAlert;
-
-    private System.DateTime _startTime = System.DateTime.MinValue;
-    private bool _isClosed;
-
-    // Network properties
-    private int _waitMillis = DEFAULT_RETRANSMISSION_WAIT_MILLIS;
-    private int _mtu;
-    private int _receiveLimit;
-    private int _sendLimit;
-
-    private volatile bool _handshakeComplete;
-    private volatile bool _handshakeFailed;
-    private volatile bool _handshaking;
-
-    public DtlsSrtpTransport(IDtlsSrtpPeer connection, int mtu = DEFAULT_MTU)
+    public DtlsSrtpTransport(IDtlsSrtpPeer connection)
     {
-        // Network properties
-        this._mtu = mtu;
-        this._receiveLimit = System.Math.Max(0, mtu - MIN_IP_OVERHEAD - UDP_OVERHEAD);
-        this._sendLimit = System.Math.Max(0, mtu - MAX_IP_OVERHEAD - UDP_OVERHEAD);
-        this.connection = connection;
-
-        connection.OnAlert += (level, type, description) => OnAlert?.Invoke(level, type, description);
+        this._connection = connection;
+        this._connection.OnSessionStarted += DtlsSrtpTransport_OnSessionStarted;
+        this._connection.OnAlert += DtlsSrtpTransport_OnAlert;
     }
 
-    public IPacketTransformer? SrtpDecoder => srtpDecoder;
+    private void DtlsSrtpTransport_OnSessionStarted(object sender, DtlsSessionStartedEventArgs e)
+    {
+        this._peerCertificate = e.PeerCertificate;
+        this.Context = e.Context;
+    }
 
-    public IPacketTransformer? SrtpEncoder => srtpEncoder;
+    private void DtlsSrtpTransport_OnAlert(object sender, DtlsAlertEventArgs args)
+    {
+        OnAlert?.Invoke(args.Level, args.AlertType, args.Description);
+    }
 
-    public IPacketTransformer? SrtcpDecoder => srtcpDecoder;
-
-    public IPacketTransformer? SrtcpEncoder => srtcpEncoder;
+    public bool DoHandshake(out string handshakeError)
+    {
+        DtlsTransport transport = _connection.DoHandshake(out handshakeError, this, null, (remoteEndpoint) => this);
+        Transport = transport;
+        return string.IsNullOrEmpty(handshakeError);
+    }
 
     public bool IsHandshakeComplete()
     {
-        return _handshakeComplete;
+        return Transport != null;
     }
 
-    public bool IsHandshakeFailed()
+    public int ProtectRTP(byte[] payload, int length, out int outputBufferLength)
     {
-        return _handshakeFailed;
+        return Context.ProtectRtp(payload, length, out outputBufferLength);
     }
 
-    public bool IsHandshaking()
+    public int UnprotectRTP(byte[] payload, int length, out int outputBufferLength)
     {
-        return _handshaking;
+        return Context.UnprotectRtp(payload, length, out outputBufferLength);
     }
 
-    public bool DoHandshake(out string? handshakeError)
+    public int ProtectRTCP(byte[] payload, int length, out int outputBufferLength)
     {
-        if (connection.IsClient())
+        return Context.ProtectRtcp(payload, length, out outputBufferLength);
+    }
+
+    public int UnprotectRTCP(byte[] payload, int length, out int outputBufferLength)
+    {
+        return Context.UnprotectRtcp(payload, length, out outputBufferLength);
+    }
+
+    public Certificate GetRemoteCertificate()
+    {
+        return _peerCertificate;
+    }
+
+    public int GetReceiveLimit() => MAXIMUM_MTU;
+
+    public int GetSendLimit() => MAXIMUM_MTU;
+
+    // TODO: Optimize to avoid array copy.
+    public void WriteToRecvStream(byte[] buffer) // remoteEndPoint = "127.0.0.1:80"
+    {
+        _data.Enqueue(buffer);
+    }
+
+    public void Close()
+    {
+        var transport = Transport;
+        if (transport != null)
         {
-            return DoHandshakeAsClient(out handshakeError);
-        }
-        else
-        {
-            return DoHandshakeAsServer(out handshakeError);
-        }
-    }
-
-    public bool IsClient
-    {
-        get { return connection.IsClient(); }
-    }
-
-    private bool DoHandshakeAsClient(out string? handshakeError)
-    {
-        handshakeError = null;
-
-        logger.LogDtlsHandshakeStartUnchecked("client");
-
-        if (!_handshaking && !_handshakeComplete)
-        {
-            this._waitMillis = RetransmissionMilliseconds;
-            this._startTime = System.DateTime.Now;
-            this._handshaking = true;
-            var clientProtocol = new DtlsClientProtocol();
-            try
-            {
-                var client = (DtlsSrtpClient)connection;
-                // Perform the handshake in a non-blocking fashion
-                Transport = clientProtocol.Connect(client, this);
-
-                // Prepare the shared key to be used in RTP streaming
-                //client.PrepareSrtpSharedSecret();
-                // Generate encoders for DTLS traffic
-                if (client.GetSrtpPolicy() is { })
-                {
-                    srtpDecoder = GenerateRtpDecoder();
-                    srtpEncoder = GenerateRtpEncoder();
-                    srtcpDecoder = GenerateRtcpDecoder();
-                    srtcpEncoder = GenerateRtcpEncoder();
-                }
-                // Declare handshake as complete
-                _handshakeComplete = true;
-                _handshakeFailed = false;
-                _handshaking = false;
-                // Warn listeners handshake completed
-                //UnityEngine.Debug.Log("DTLS Handshake Completed");
-
-                return true;
-            }
-            catch (System.Exception excp)
-            {
-                if (excp.InnerException is TimeoutException)
-                {
-                    logger.LogDtlsHandshakeTimeout("client", excp);
-                    handshakeError = "timeout";
-                }
-                else
-                {
-                    handshakeError = "unknown";
-                    if (excp is Org.BouncyCastle.Tls.TlsFatalAlert tlsFatalAlert)
-                    {
-                        handshakeError = tlsFatalAlert.Message;
-                    }
-
-                    logger.LogDtlsHandshakeFailed("client", excp.Message, excp);
-                }
-
-                // Declare handshake as failed
-                _handshakeComplete = false;
-                _handshakeFailed = true;
-                _handshaking = false;
-                // Warn listeners handshake completed
-                //UnityEngine.Debug.Log("DTLS Handshake failed\n" + e);
-            }
-        }
-        return false;
-    }
-
-    private bool DoHandshakeAsServer(out string? handshakeError)
-    {
-        handshakeError = null;
-
-        logger.LogDtlsHandshakeStartUnchecked("server");
-
-        if (!_handshaking && !_handshakeComplete)
-        {
-            this._waitMillis = RetransmissionMilliseconds;
-            this._startTime = System.DateTime.Now;
-            this._handshaking = true;
-            var serverProtocol = new DtlsServerProtocol();
-            try
-            {
-                var server = (DtlsSrtpServer)connection;
-
-                // Perform the handshake in a non-blocking fashion
-                Transport = serverProtocol.Accept(server, this);
-                // Prepare the shared key to be used in RTP streaming
-                //server.PrepareSrtpSharedSecret();
-                // Generate encoders for DTLS traffic
-                if (server.GetSrtpPolicy() is { })
-                {
-                    srtpDecoder = GenerateRtpDecoder();
-                    srtpEncoder = GenerateRtpEncoder();
-                    srtcpDecoder = GenerateRtcpDecoder();
-                    srtcpEncoder = GenerateRtcpEncoder();
-                }
-                // Declare handshake as complete
-                _handshakeComplete = true;
-                _handshakeFailed = false;
-                _handshaking = false;
-                // Warn listeners handshake completed
-                //UnityEngine.Debug.Log("DTLS Handshake Completed");
-                return true;
-            }
-            catch (System.Exception excp)
-            {
-                if (excp.InnerException is TimeoutException)
-                {
-                    logger.LogDtlsHandshakeTimeout("server", excp);
-                    handshakeError = "timeout";
-                }
-                else
-                {
-                    handshakeError = "unknown";
-                    if (excp is Org.BouncyCastle.Tls.TlsFatalAlert tlsFatalAlert)
-                    {
-                        handshakeError = tlsFatalAlert.Message;
-                    }
-
-                    logger.LogDtlsHandshakeFailed("server", excp.Message, excp);
-                }
-
-                // Declare handshake as failed
-                _handshakeComplete = false;
-                _handshakeFailed = true;
-                _handshaking = false;
-                // Warn listeners handshake completed
-                //UnityEngine.Debug.Log("DTLS Handshake failed\n"+ e);
-            }
-        }
-        return false;
-    }
-
-    public Certificate? GetRemoteCertificate() => connection.GetRemoteCertificate();
-
-    protected byte[]? GetMasterServerKey() => connection.GetSrtpMasterServerKey();
-
-    protected byte[]? GetMasterServerSalt() => connection.GetSrtpMasterServerSalt();
-
-    protected byte[]? GetMasterClientKey() => connection.GetSrtpMasterClientKey();
-
-    protected byte[]? GetMasterClientSalt() => connection.GetSrtpMasterClientSalt();
-
-    protected SrtpPolicy? GetSrtpPolicy() => connection.GetSrtpPolicy();
-
-    protected SrtpPolicy? GetSrtcpPolicy() => connection.GetSrtcpPolicy();
-
-    protected IPacketTransformer GenerateRtpEncoder() => GenerateTransformer(connection.IsClient(), true);
-
-    protected IPacketTransformer GenerateRtpDecoder() =>
-        //Generate the reverse result of "GenerateRtpEncoder"
-        GenerateTransformer(!connection.IsClient(), true);
-
-    protected IPacketTransformer GenerateRtcpEncoder()
-    {
-        var isClient = connection is DtlsSrtpClient;
-        return GenerateTransformer(connection.IsClient(), false);
-    }
-
-    protected IPacketTransformer GenerateRtcpDecoder() =>
-        //Generate the reverse result of "GenerateRctpEncoder"
-        GenerateTransformer(!connection.IsClient(), false);
-
-    protected IPacketTransformer GenerateTransformer(bool isClient, bool isRtp)
-    {
-        var srtpPolicy = GetSrtpPolicy();
-        var srtcpPolicy = GetSrtcpPolicy();
-        Debug.Assert(srtpPolicy is { });
-        Debug.Assert(srtcpPolicy is { });
-
-        SrtpTransformEngine engine;
-        if (!isClient)
-        {
-            var masterKey = GetMasterServerKey();
-            var masterSalt = GetMasterServerSalt();
-            Debug.Assert(masterKey is { });
-            Debug.Assert(masterSalt is { });
-            engine = new SrtpTransformEngine(masterKey, masterSalt, srtpPolicy, srtcpPolicy);
-        }
-        else
-        {
-            var masterKey = GetMasterClientKey();
-            var masterSalt = GetMasterClientSalt();
-            Debug.Assert(masterKey is { });
-            Debug.Assert(masterSalt is { });
-            engine = new SrtpTransformEngine(masterKey, masterSalt, srtpPolicy, srtcpPolicy);
-        }
-
-        if (isRtp)
-        {
-            return engine.GetRTPTransformer();
-        }
-        else
-        {
-            return engine.GetRTCPTransformer();
-        }
-    }
-
-    public byte[]? UnprotectRTP(byte[] packet, int offset, int length)
-    {
-        Debug.Assert(this.srtpDecoder is { });
-
-        lock (this.srtpDecoder)
-        {
-            return this.srtpDecoder.ReverseTransform(packet, offset, length);
-        }
-    }
-
-    public int UnprotectRTP(byte[] payload, int length, out int outLength)
-    {
-        var result = UnprotectRTP(payload, 0, length);
-
-        if (result is null)
-        {
-            outLength = 0;
-            return -1;
-        }
-
-        System.Buffer.BlockCopy(result, 0, payload, 0, result.Length);
-        outLength = result.Length;
-
-        return 0; //No Errors
-    }
-
-    public byte[]? ProtectRTP(byte[] packet, int offset, int length)
-    {
-        Debug.Assert(this.srtpEncoder is { });
-
-        lock (this.srtpEncoder)
-        {
-            return this.srtpEncoder.Transform(packet, offset, length);
-        }
-    }
-
-    public int ProtectRTP(byte[] payload, int length, out int outLength)
-    {
-        var result = ProtectRTP(payload, 0, length);
-
-        if (result is null)
-        {
-            outLength = 0;
-            return -1;
-        }
-
-        System.Buffer.BlockCopy(result, 0, payload, 0, result.Length);
-        outLength = result.Length;
-
-        return 0; //No Errors
-    }
-
-    public byte[]? UnprotectRTCP(byte[] packet, int offset, int length)
-    {
-        Debug.Assert(this.srtcpDecoder is { });
-
-        lock (this.srtcpDecoder)
-        {
-            return this.srtcpDecoder.ReverseTransform(packet, offset, length);
-        }
-    }
-
-    public int UnprotectRTCP(byte[] payload, int length, out int outLength)
-    {
-        var result = UnprotectRTCP(payload, 0, length);
-        if (result is null)
-        {
-            outLength = 0;
-            return -1;
-        }
-
-        System.Buffer.BlockCopy(result, 0, payload, 0, result.Length);
-        outLength = result.Length;
-
-        return 0; //No Errors
-    }
-
-    public byte[]? ProtectRTCP(byte[] packet, int offset, int length)
-    {
-        Debug.Assert(this.srtcpEncoder is { });
-
-        lock (this.srtcpEncoder)
-        {
-            return this.srtcpEncoder.Transform(packet, offset, length);
-        }
-    }
-
-    public int ProtectRTCP(byte[] payload, int length, out int outLength)
-    {
-        var result = ProtectRTCP(payload, 0, length);
-        if (result is null)
-        {
-            outLength = 0;
-            return -1;
-        }
-
-        System.Buffer.BlockCopy(result, 0, payload, 0, result.Length);
-        outLength = result.Length;
-
-        return 0; //No Errors
-    }
-
-    /// <summary>
-    /// Returns the number of milliseconds remaining until a timeout occurs.
-    /// </summary>
-    private int GetMillisecondsRemaining()
-    {
-        return TimeoutMilliseconds - (int)(System.DateTime.Now - this._startTime).TotalMilliseconds;
-    }
-
-    public int GetReceiveLimit()
-    {
-        return this._receiveLimit;
-    }
-
-    public int GetSendLimit()
-    {
-        return this._sendLimit;
-    }
-
-    public void WriteToRecvStream(ReadOnlySpan<byte> buf)
-    {
-        if (!_isClosed)
-        {
-            _chunks.Add(buf.ToArray());
-        }
-    }
-
-    /// <summary>
-    /// Reads a chunk from the internal buffer into the provided span.
-    /// </summary>
-    /// <param name="buffer">The span to copy data into.</param>
-    /// <param name="timeout">Timeout in milliseconds.</param>
-    /// <returns>Number of bytes read, or DTLS_RETRANSMISSION_CODE on timeout/error.</returns>
-    private int Read(Span<byte> buffer, int timeout)
-    {
-        try
-        {
-            if (_isClosed)
-            {
-                throw new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.NotConnected);
-                //return DTLS_RECEIVE_ERROR_CODE;
-            }
-            else if (_chunks.TryTake(out var item, timeout))
-            {
-                var copyLen = Math.Min(item.Length, buffer.Length);
-                item.AsSpan(0, copyLen).CopyTo(buffer);
-                return copyLen;
-            }
-        }
-        catch (ObjectDisposedException) { }
-        catch (ArgumentNullException) { }
-
-        return DTLS_RETRANSMISSION_CODE;
-    }
-
-    public int Receive(Span<byte> buf, int waitMillis)
-    {
-        if (!_handshakeComplete)
-        {
-            if (_isClosed)
-            {
-                throw new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.NotConnected);
-            }
-            // The timeout for the handshake applies from when it started rather than
-            // for each individual receive..
-            var millisecondsRemaining = GetMillisecondsRemaining();
-
-            //Handle DTLS 1.3 Retransmission time (100 to 6000 ms)
-            //https://tools.ietf.org/id/draft-ietf-tls-dtls13-31.html#rfc.section.5.7
-            //As HandshakeReliable class contains too long hardcoded initial waitMillis (1000 ms) we must control this internally
-            //PS: Random extra delta time guarantee that work in local networks.
-            waitMillis = _waitMillis + random.Next(5, 25);
-
-            if (millisecondsRemaining <= 0)
-            {
-                logger.LogDtlsHandshakeTimedOut(TimeoutMilliseconds, connection.IsClient() ? "server" : "client");
-                throw new TimeoutException();
-            }
-            else
-            {
-                waitMillis = Math.Min(waitMillis, millisecondsRemaining);
-                var receiveLen = Read(buf, waitMillis);
-
-                //Handle DTLS 1.3 Retransmission time (100 to 6000 ms)
-                //https://tools.ietf.org/id/draft-ietf-tls-dtls13-31.html#rfc.section.5.7
-                if (receiveLen == DTLS_RETRANSMISSION_CODE)
-                {
-                    _waitMillis = BackOff(_waitMillis);
-                }
-                else
-                {
-                    _waitMillis = RetransmissionMilliseconds;
-                }
-
-                return receiveLen;
-            }
-        }
-        else if (!_isClosed)
-        {
-            return Read(buf, waitMillis);
-        }
-        else
-        {
-            //throw new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.NotConnected);
-            return DTLS_RECEIVE_ERROR_CODE;
+            Transport = null;
+            transport.Close();
         }
     }
 
     public int Receive(byte[] buf, int off, int len, int waitMillis)
-        => Receive(new Span<byte>(buf, off, len), waitMillis);
-
-    public void Send(byte[] buf, int off, int len) => Send(new ReadOnlySpan<byte>(buf, off, len));
-
-    /// <summary>
-    /// Sends data from the provided buffer span using ArrayPool for efficient allocation.
-    /// Only sends if the buffer is not empty.
-    /// </summary>
-    /// <param name="buf">The buffer span containing the data to send.</param>
-    public void Send(ReadOnlySpan<byte> buf)
     {
-        if (buf.IsEmpty)
+        long t = 0;
+        while (true)
         {
-            return;
-        }
-
-        var pool = System.Buffers.ArrayPool<byte>.Shared;
-        var rented = pool.Rent(buf.Length);
-        try
-        {
-            buf.CopyTo(rented);
-            OnDataReady?.Invoke(rented.AsMemory(0, buf.Length));
-        }
-        finally
-        {
-            pool.Return(rented);
+            if (_data.TryDequeue(out var data))
+            {
+                Buffer.BlockCopy(data, 0, buf, 0, data.Length);
+                return data.Length;
+            }
+            else
+            {
+                System.Threading.Thread.Sleep(25);
+                t += 25;
+                if (t > waitMillis)
+                {
+                    return -1;
+                }
+            }
         }
     }
 
-    public virtual void Close()
+    public void Send(byte[] buf, int off, int len)
     {
-        if (!_isClosed)
-        {
-            _isClosed = true;
-            this._startTime = System.DateTime.MinValue;
-            this._chunks?.Dispose();
-            Transport?.Close();
-        }
+        OnDataReady?.Invoke(buf.AsSpan(off, len).ToArray());
     }
 
-    /// <summary>
-    /// Close the transport if the instance is out of scope.
-    /// </summary>
-    protected void Dispose(bool disposing)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+    public int Receive(Span<byte> buffer, int waitMillis)
     {
-        if (!_isClosed)
-        {
-            Close();
-        }
+        return Receive(buffer.ToArray(), 0, buffer.Length, waitMillis);
     }
 
-    /// <summary>
-    /// Close the transport if the instance is out of scope.
-    /// </summary>
-    public void Dispose()
+    public void Send(ReadOnlySpan<byte> buffer)
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
+        Send(buffer.ToArray(), 0, buffer.Length);
     }
-
-    /// <summary>
-    /// Handle retransmission time based in DTLS 1.3 
-    /// </summary>
-    /// <param name="currentWaitMillis"></param>
-    /// <returns></returns>
-    protected virtual int BackOff(int currentWaitMillis)
-    {
-        return System.Math.Min(currentWaitMillis * 2, 6000);
-    }
+#endif
 }

@@ -13,9 +13,11 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Tls.Crypto.Impl.BC;
+using SIPSorcery.Net.SharpSRTP.DTLSSRTP;
 using SIPSorcery.UnitTests;
 using Xunit;
 
@@ -82,12 +84,12 @@ namespace SIPSorcery.Net.IntegrationTests
             dtlsClientTransport.OnDataReady += (buf) =>
             {
                 logger.LogDebug("DTLS client transport sending {BufferLength} bytes to server.", buf.Length);
-                dtlsServerTransport.WriteToRecvStream(buf.Span);
+                dtlsServerTransport.WriteToRecvStream(buf);
             };
             dtlsServerTransport.OnDataReady += (buf) =>
             {
                 logger.LogDebug("DTLS server transport sending {BufferLength} bytes to client.", buf.Length);
-                dtlsClientTransport.WriteToRecvStream(buf.Span);
+                dtlsClientTransport.WriteToRecvStream(buf);
             };
 
             var serverTask = Task.Run<bool>(() => dtlsServerTransport.DoHandshake(out _));
@@ -104,13 +106,13 @@ namespace SIPSorcery.Net.IntegrationTests
             Assert.True(await serverTask);
             Assert.True(await clientTask);
 
-            logger.LogDebug("DTLS client fingerprint       : {Fingerprint}", dtlsServer.Fingerprint);
+            logger.LogDebug("DTLS client fingerprint       : {Fingerprint}", DtlsUtils.Fingerprint(dtlsClient.Certificate));
             //logger.LogDebug($"DTLS client server fingerprint: {dtlsClient.ServerFingerprint}.");
-            logger.LogDebug("DTLS server fingerprint       : {Fingerprint}", dtlsServer.Fingerprint);
+            logger.LogDebug("DTLS server fingerprint       : {Fingerprint}", DtlsUtils.Fingerprint(dtlsServer.Certificate));
             //logger.LogDebug($"DTLS server client fingerprint: {dtlsServer.ClientFingerprint}.");
 
-            Assert.NotNull(dtlsClient.GetRemoteCertificate());
-            Assert.NotNull(dtlsServer.GetRemoteCertificate());
+            Assert.NotNull(dtlsClientTransport.GetRemoteCertificate());
+            Assert.NotNull(dtlsServerTransport.GetRemoteCertificate());
             //Assert.Equal(dtlsServer.Fingerprint.algorithm, dtlsClient.ServerFingerprint.algorithm);
             //Assert.Equal(dtlsServer.Fingerprint.value, dtlsClient.ServerFingerprint.value);
             //Assert.Equal(dtlsClient.Fingerprint.algorithm, dtlsServer.ClientFingerprint.algorithm);
@@ -146,7 +148,7 @@ namespace SIPSorcery.Net.IntegrationTests
             DtlsSrtpTransport dtlsServerTransport = new DtlsSrtpTransport(new DtlsSrtpServer(new BcTlsCrypto()));
             dtlsServerTransport.TimeoutMilliseconds = 2000;
 
-            var result = await Task.Run<bool>(() => dtlsServerTransport.DoHandshake(out _));
+            var result = await Task.Run<bool>(() => dtlsServerTransport.DoHandshake(out _)).WaitAsync(TimeSpan.FromMilliseconds(3000), CancellationToken.None);
 
             Assert.False(result);
         }
