@@ -34,20 +34,9 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Net;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
-using Org.BouncyCastle.Tls;
-using Org.BouncyCastle.Tls.Crypto.Impl.BC;
 using SIPSorcery.SIP.App;
 using SIPSorcery.Sys;
+using System.Net;
 
 namespace SIPSorcery.Net;
 
@@ -469,19 +458,21 @@ public class RTCPeerConnection : RTPSession, IRTCPeerConnection
                 SetGlobalDestination(connectedEP, connectedEP);
                 logger.LogWebRtcIceConnected(connectedEP);
 
-                var disableDtlsExtendedMasterSecret = _configuration is { } && _configuration.X_DisableExtendedMasterSecretKey;
+                var disableDtlsExtendedMasterSecret = _configuration is { X_DisableExtendedMasterSecretKey: true };
 
                 Debug.Assert(_dtlsPrivateKey is { });
+
                 _dtlsHandle = new DtlsSrtpTransport(
                     IceRole == IceRolesEnum.active
-                    ? new DtlsSrtpClient(_crypto, _dtlsCertificate, _dtlsPrivateKey)
-                    {
-                        ForceUseExtendedMasterSecret = !disableDtlsExtendedMasterSecret
-                    }
-                    : (IDtlsSrtpPeer)new DtlsSrtpServer(_crypto, _dtlsCertificate, _dtlsPrivateKey)
-                    {
-                        ForceUseExtendedMasterSecret = !disableDtlsExtendedMasterSecret
-                    }
+                        ? new DtlsSrtpClient(_crypto, _dtlsCertificate, _dtlsPrivateKey, _configuration.X_UseRsaForDtlsCertificate ? SignatureAlgorithm.rsa : SignatureAlgorithm.ecdsa)
+                        {
+                            ForceUseExtendedMasterSecret = !disableDtlsExtendedMasterSecret
+                        }
+                        : new DtlsSrtpServer(_crypto, _dtlsCertificate, _dtlsPrivateKey, _configuration.X_UseRsaForDtlsCertificate ? SignatureAlgorithm.rsa : SignatureAlgorithm.ecdsa)
+                        {
+                            ForceUseExtendedMasterSecret = !disableDtlsExtendedMasterSecret,
+                            ForceDisableMKI = true
+                        }
                 );
 
                 _dtlsHandle.OnAlert += OnDtlsAlert;
