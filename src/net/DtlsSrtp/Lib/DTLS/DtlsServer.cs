@@ -25,9 +25,11 @@ using Org.BouncyCastle.Tls;
 using Org.BouncyCastle.Tls.Crypto;
 using Org.BouncyCastle.Tls.Crypto.Impl.BC;
 using Org.BouncyCastle.Utilities.Encoders;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace SIPSorcery.Net.SharpSRTP.DTLS
 {
@@ -46,11 +48,25 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
         public event EventHandler<DtlsHandshakeCompletedEventArgs> OnHandshakeCompleted;
         public event EventHandler<DtlsAlertEventArgs> OnAlert;
 
-        public DtlsServer(Certificate certificate = null, AsymmetricKeyParameter privateKey = null, short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa, short certificateHashAlgorithm = HashAlgorithm.sha256) : 
-            this(new BcTlsCrypto(), certificate, privateKey, certificateSignatureAlgorithm, certificateHashAlgorithm)
+        public DtlsServer(
+            Certificate certificate = null,
+            AsymmetricKeyParameter privateKey = null,
+            short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa,
+            short certificateHashAlgorithm = HashAlgorithm.sha256) : 
+            this(
+                new BcTlsCrypto(),
+                certificate,
+                privateKey,
+                certificateSignatureAlgorithm,
+                certificateHashAlgorithm)
         {  }
 
-        public DtlsServer(TlsCrypto crypto, Certificate certificate = null, AsymmetricKeyParameter privateKey = null, short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa, short certificateHashAlgorithm = HashAlgorithm.sha256) : base(crypto)
+        public DtlsServer(
+            TlsCrypto crypto,
+            Certificate certificate = null,
+            AsymmetricKeyParameter privateKey = null,
+            short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa,
+            short certificateHashAlgorithm = HashAlgorithm.sha256) : base(crypto)
         {
             if (certificate == null || privateKey == null)
             {

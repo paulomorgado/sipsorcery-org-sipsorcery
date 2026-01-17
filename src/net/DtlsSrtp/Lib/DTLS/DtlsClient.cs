@@ -26,8 +26,10 @@ using Org.BouncyCastle.Tls.Crypto;
 using Org.BouncyCastle.Tls.Crypto.Impl.BC;
 using Org.BouncyCastle.Utilities;
 using Org.BouncyCastle.Utilities.Encoders;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace SIPSorcery.Net.SharpSRTP.DTLS
 {
@@ -53,11 +55,17 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
         public event EventHandler<DtlsAlertEventArgs> OnAlert;
 
         public DtlsClient(
-            TlsSession session = null, Certificate certificate = null, AsymmetricKeyParameter privateKey = null,
+            TlsSession session = null,
+            Certificate certificate = null,
+            AsymmetricKeyParameter privateKey = null,
             short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa,
-            short certificateHashAlgorithm = HashAlgorithm.sha256) 
+            short certificateHashAlgorithm = HashAlgorithm.sha256)
             : this(
-                  new BcTlsCrypto(), session, certificate, privateKey, certificateSignatureAlgorithm,
+                  new BcTlsCrypto(),
+                  session,
+                  certificate,
+                  privateKey,
+                  certificateSignatureAlgorithm,
                   certificateHashAlgorithm)
         { }
 
@@ -123,7 +131,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
                     CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
                 };
             }
-            else if(CertificateSignatureAlgorithm == SignatureAlgorithm.ecdsa)
+            else if (CertificateSignatureAlgorithm == SignatureAlgorithm.ecdsa)
             {
                 // ECDSA certificates require matching cipher suites
                 return new int[]
@@ -150,7 +158,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
         public virtual DtlsTransport DoHandshake(out string handshakeError, DatagramTransport datagramTransport, Func<string> getRemoteEndpoint = null, Func<string, DatagramTransport> createClientDatagramTransport = null)
         {
             DtlsTransport transport = null;
-                        
+
             try
             {
                 DtlsClientProtocol clientProtocol = new DtlsClientProtocol();
@@ -369,7 +377,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
                     return null;
                 }
 
-                if(_client.Certificate == null || _client.CertificatePrivateKey == null)
+                if (_client.Certificate == null || _client.CertificatePrivateKey == null)
                 {
                     if (_client.AutogenerateCertificate)
                     {
@@ -396,7 +404,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
                     }
                 }
 
-                if(signatureAndHashAlgorithm == null)
+                if (signatureAndHashAlgorithm == null)
                 {
                     throw new InvalidOperationException("DTLS Client does not support the selected certificate algorithm!");
                 }
@@ -432,7 +440,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
             {
                 return true;
             }
-            
+
             return false;
         }
     }

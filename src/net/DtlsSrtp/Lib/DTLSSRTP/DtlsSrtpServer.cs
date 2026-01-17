@@ -28,6 +28,7 @@ using SIPSorcery.Net.SharpSRTP.SRTP;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace SIPSorcery.Net.SharpSRTP.DTLSSRTP
 {
@@ -46,12 +47,31 @@ namespace SIPSorcery.Net.SharpSRTP.DTLSSRTP
 
         public event EventHandler<DtlsSessionStartedEventArgs> OnSessionStarted;
 
-        public DtlsSrtpServer(Certificate certificate = null, AsymmetricKeyParameter privateKey = null, short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa, short certificateHashAlgorithm = HashAlgorithm.sha256) 
-            : this(new BcTlsCrypto(), certificate, privateKey, certificateSignatureAlgorithm, certificateHashAlgorithm)
+        public DtlsSrtpServer(
+            Certificate certificate = null,
+            AsymmetricKeyParameter privateKey = null,
+            short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa,
+            short certificateHashAlgorithm = HashAlgorithm.sha256)
+            : this(
+                  new BcTlsCrypto(),
+                  certificate,
+                  privateKey,
+                  certificateSignatureAlgorithm,
+                  certificateHashAlgorithm)
         { }
 
-        public DtlsSrtpServer(TlsCrypto crypto, Certificate certificate = null, AsymmetricKeyParameter privateKey = null, short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa, short certificateHashAlgorithm = HashAlgorithm.sha256) 
-            : base(crypto, certificate, privateKey, certificateSignatureAlgorithm, certificateHashAlgorithm)
+        public DtlsSrtpServer(
+            TlsCrypto crypto,
+            Certificate certificate = null,
+            AsymmetricKeyParameter privateKey = null,
+            short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa,
+            short certificateHashAlgorithm = HashAlgorithm.sha256)
+            : base(
+                  crypto,
+                  certificate,
+                  privateKey,
+                  certificateSignatureAlgorithm,
+                  certificateHashAlgorithm)
         {
             this.OnHandshakeCompleted += DtlsSrtpServer_OnHandshakeCompleted;
         }

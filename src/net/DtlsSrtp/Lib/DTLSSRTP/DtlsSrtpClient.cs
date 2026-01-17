@@ -28,6 +28,7 @@ using SIPSorcery.Net.SharpSRTP.SRTP;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace SIPSorcery.Net.SharpSRTP.DTLSSRTP
 {
@@ -54,9 +55,12 @@ namespace SIPSorcery.Net.SharpSRTP.DTLSSRTP
         { }
 
         public DtlsSrtpClient(
-            TlsCrypto crypto, Certificate certificate = null, AsymmetricKeyParameter privateKey = null,
+            TlsCrypto crypto,
+            Certificate certificate = null,
+            AsymmetricKeyParameter privateKey = null,
             short certificateSignatureAlgorithm = SignatureAlgorithm.ecdsa,
-            short certificateHashAlgorithm = HashAlgorithm.sha256, TlsSession session = null) : 
+            short certificateHashAlgorithm = HashAlgorithm.sha256,
+            TlsSession session = null) : 
             base(
                 crypto,
                 session,
