@@ -14,9 +14,10 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -25,7 +26,7 @@ using SIPSorcery.Sys;
 
 namespace SIPSorcery.Net
 {
-    public class STUNMessage
+    public partial class STUNMessage
     {
         private const int FINGERPRINT_XOR = 0x5354554e;
         private const int MESSAGE_INTEGRITY_ATTRIBUTE_HMAC_LENGTH = 20;
@@ -34,45 +35,52 @@ namespace SIPSorcery.Net
         private static readonly ILogger logger = LogFactory.CreateLogger<STUNMessage>();
 
         /// <summary>
-        /// For parsed STUN messages this indicates whether a valid fingerprint
-        /// as attached to the message.
+        /// For parsed STUN messages this indicates whether a valid fingerprint as attached to the message.
         /// </summary>
-        public bool isFingerprintValid { get; private set; } = false;
+        public bool isFingerprintValid { get; private set; }
 
         /// <summary>
         /// For received STUN messages this is the raw buffer.
         /// </summary>
-        private byte[] _receivedBuffer;
+        private Memory<byte> _receivedBuffer;
 
-        public STUNHeader Header = new STUNHeader();
-        public List<STUNAttribute> Attributes = new List<STUNAttribute>();
+        public STUNHeader Header { get; }
+        public List<STUNAttribute> Attributes { get; private set; } = new List<STUNAttribute>();
 
         public ushort PaddedSize
         {
             get
             {
+                Debug.Assert(Header is { });
                 return (ushort)(STUNHeader.STUN_HEADER_LENGTH + Header.MessageLength);
             }
         }
 
-        public STUNMessage()
-        { }
-
-        public STUNMessage(STUNMessageTypesEnum stunMessageType)
+        public STUNMessage(STUNHeader header)
         {
-            Header = new STUNHeader(stunMessageType);
+            Header = header;
         }
 
-        public void AddUsernameAttribute(string username)
+        public STUNMessage(STUNMessageTypesEnum stunMessageType)
+            : this(new STUNHeader(stunMessageType))
         {
-            byte[] usernameBytes = Encoding.UTF8.GetBytes(username);
+        }
+
+        public void AddUsernameAttribute(ReadOnlySpan<char> username)
+        {
+            var usernameBytes = Encoding.UTF8.GetBytes(username);
+            AddUsernameAttribute(usernameBytes.AsMemory());
+        }
+
+        public void AddUsernameAttribute(ReadOnlyMemory<byte> usernameBytes)
+        {
             Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Username, usernameBytes));
         }
 
         public void AddNonceAttribute(string nonce)
         {
-            byte[] nonceBytes = Encoding.UTF8.GetBytes(nonce);
-            Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Nonce, nonceBytes));
+            var nonceBytes = Encoding.UTF8.GetBytes(nonce);
+            Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Nonce, nonceBytes.AsMemory()));
         }
 
         public void AddXORMappedAddressAttribute(IPAddress remoteAddress, int remotePort)
@@ -87,7 +95,7 @@ namespace SIPSorcery.Net
 
         public void AddXORAddressAttribute(STUNAttributeTypesEnum addressType, IPAddress remoteAddress, int remotePort)
         {
-            STUNXORAddressAttribute xorAddressAttribute = new STUNXORAddressAttribute(addressType, remotePort, remoteAddress, Header.TransactionId);
+            var xorAddressAttribute = new STUNXORAddressAttribute(addressType, remotePort, remoteAddress, Header.TransactionId);
             Attributes.Add(xorAddressAttribute);
         }
 
@@ -95,19 +103,21 @@ namespace SIPSorcery.Net
         /// Parses a STUN message from the start of a buffer.
         /// </summary>
         /// <param name="buffer">The buffer to parse.</param>
-        /// <param name="bufferLength">The number of bytes in the buffer that belong to the message.</param>
         /// <returns>The parsed message, or null if the buffer cannot hold one.</returns>
-        /// <exception cref="ApplicationException">The buffer is long enough to hold a header but does not
-        /// begin with the two zero bits every STUN message starts with.</exception>
-        public static STUNMessage ParseSTUNMessage(byte[] buffer, int bufferLength)
+        /// <exception cref="ApplicationException">
+        /// The buffer is long enough to hold a header but does not begin with the two zero bits every STUN message
+        /// starts with.
+        /// </exception>
+        public static STUNMessage? ParseSTUNMessage(ReadOnlySpan<byte> buffer)
         {
-            if (buffer != null && buffer.Length > 0 && buffer.Length >= bufferLength)
+            if (!buffer.IsEmpty)
             {
-                STUNMessage stunMessage = new STUNMessage();
-                stunMessage._receivedBuffer = buffer.AsSpan(0, bufferLength).ToArray();
-                stunMessage.Header = STUNHeader.ParseSTUNHeader(buffer);
+                var header = STUNHeader.ParseSTUNHeader(buffer);
+                Debug.Assert(header is { });
+                var stunMessage = new STUNMessage(header);
+                stunMessage._receivedBuffer = buffer.ToArray();
 
-                if (stunMessage.Header == null)
+                if (stunMessage.Header is null)
                 {
                     // ParseSTUNHeader returns null for a buffer too short to hold the 20 byte header, and a
                     // buffer whose first two bits are zero takes that null path rather than the "did not
@@ -128,26 +138,22 @@ namespace SIPSorcery.Net
                     // on a null result we fall back to that empty list rather than overwriting it with null.
                     // This keeps Attributes non-null so the "stunMessage.Attributes.Count" access below (and
                     // any caller that enumerates Attributes) cannot throw a NullReferenceException.
-                    stunMessage.Attributes = STUNAttribute.ParseMessageAttributes(buffer, STUNHeader.STUN_HEADER_LENGTH, bufferLength, stunMessage.Header) ?? stunMessage.Attributes;
-                }
+                    stunMessage.Attributes = STUNAttribute.ParseMessageAttributes(buffer.Slice(STUNHeader.STUN_HEADER_LENGTH), stunMessage.Header, stunMessage.Attributes) ?? stunMessage.Attributes;
 
-                if (stunMessage.Attributes.Count > 0 && stunMessage.Attributes.Last().AttributeType == STUNAttributeTypesEnum.FingerPrint)
-                {
-                    // Check fingerprint.
-                    var fingerprintAttribute = stunMessage.Attributes.Last();
-
-                    var input = buffer.AsSpan(0, bufferLength - STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH - FINGERPRINT_ATTRIBUTE_CRC32_LENGTH).ToArray();
-
-                    uint crc = Crc32.Compute(input) ^ FINGERPRINT_XOR;
-                    var fingerPrint = new byte[4];
-                    BinaryPrimitives.WriteUInt32BigEndian(fingerPrint, crc);
-
-                    //logger.LogDebug($"STUNMessage supplied fingerprint attribute: {fingerprintAttribute.Value.HexStr()}.");
-                    //logger.LogDebug($"STUNMessage calculated fingerprint attribute: {fingerPrint.HexStr()}.");
-
-                    if (fingerprintAttribute.Value.HexStr() == fingerPrint.HexStr())
+                    if (stunMessage.Attributes is { Count: > 0 } &&
+                        stunMessage.Attributes[stunMessage.Attributes.Count - 1] is { AttributeType: STUNAttributeTypesEnum.FingerPrint } fingerprintAttribute)
                     {
-                        stunMessage.isFingerprintValid = true;
+                        // Check fingerprint.
+
+                        var input = buffer.Slice(0, buffer.Length - STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH - FINGERPRINT_ATTRIBUTE_CRC32_LENGTH);
+
+                        var crc = Crc32.Compute(input) ^ FINGERPRINT_XOR;
+                        var fingerprint = BinaryPrimitives.ReadUInt32BigEndian(fingerprintAttribute.Value.Span);
+
+                        if (crc == fingerprint)
+                        {
+                            stunMessage.isFingerprintValid = true;
+                        }
                     }
                 }
 
@@ -157,92 +163,156 @@ namespace SIPSorcery.Net
             return null;
         }
 
-        public byte[] ToByteBufferStringKey(string messageIntegrityKey, bool addFingerprint)
+        public int GetByteBufferSizeStringKey(string? messageIntegrityKey, bool addFingerprint)
         {
-            return ToByteBuffer(messageIntegrityKey.NotNullOrBlank() ? System.Text.Encoding.UTF8.GetBytes(messageIntegrityKey) : null, addFingerprint);
+            if (string.IsNullOrWhiteSpace(messageIntegrityKey))
+            {
+                return GetByteBufferSize(ReadOnlySpan<byte>.Empty, addFingerprint);
+            }
+
+            var maxByteCount = Encoding.UTF8.GetMaxByteCount(messageIntegrityKey.Length);
+            var rentedBuffer = ArrayPool<byte>.Shared.Rent(maxByteCount);
+
+            try
+            {
+                var actualByteCount = Encoding.UTF8.GetBytes(messageIntegrityKey.AsSpan(), rentedBuffer);
+                var keySpan = new ReadOnlySpan<byte>(rentedBuffer, 0, actualByteCount);
+                return GetByteBufferSize(keySpan, addFingerprint);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rentedBuffer);
+            }
         }
 
-        public byte[] ToByteBuffer(byte[] messageIntegrityKey, bool addFingerprint)
+        public void WriteToBufferStringKey(Span<byte> destination, string? messageIntegrityKey, bool addFingerprint)
         {
-            UInt16 attributesLength = 0;
-            foreach (STUNAttribute attribute in Attributes)
+            ReadOnlySpan<byte> keySpan;
+
+            if (messageIntegrityKey.NotNullOrBlank())
             {
-                attributesLength += Convert.ToUInt16(STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + attribute.PaddedLength);
+                var maxByteCount = Encoding.UTF8.GetMaxByteCount(messageIntegrityKey.Length);
+                var rentedBuffer = ArrayPool<byte>.Shared.Rent(maxByteCount);
+
+                try
+                {
+                    var actualByteCount = Encoding.UTF8.GetBytes(messageIntegrityKey.AsSpan(), rentedBuffer);
+                    keySpan = new ReadOnlySpan<byte>(rentedBuffer, 0, actualByteCount);
+
+                    WriteToBuffer(destination, keySpan, addFingerprint);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(rentedBuffer);
+                }
+            }
+            else
+            {
+                WriteToBuffer(destination, ReadOnlySpan<byte>.Empty, addFingerprint);
+            }
+        }
+
+        public int GetByteBufferSize(ReadOnlySpan<byte> messageIntegrityKey, bool addFingerprint)
+        {
+            var attributesLength = 0;
+
+            foreach (var attribute in Attributes)
+            {
+                attributesLength += (ushort)(STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + attribute.PaddedLength);
             }
 
-            if (messageIntegrityKey != null)
+            if (!messageIntegrityKey.IsEmpty)
             {
-                attributesLength += STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + MESSAGE_INTEGRITY_ATTRIBUTE_HMAC_LENGTH;
+                attributesLength += (ushort)(STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + MESSAGE_INTEGRITY_ATTRIBUTE_HMAC_LENGTH);
             }
 
-            int messageLength = STUNHeader.STUN_HEADER_LENGTH + attributesLength;
-
-            byte[] buffer = new byte[messageLength];
-
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.AsSpan(0), (UInt16)Header.MessageType);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.AsSpan(2), attributesLength);
-            BinaryPrimitives.WriteUInt32BigEndian(buffer.AsSpan(4), STUNHeader.MAGIC_COOKIE);
-
-            Buffer.BlockCopy(Header.TransactionId, 0, buffer, 8, STUNHeader.TRANSACTION_ID_LENGTH);
-
-            int attributeIndex = 20;
-            foreach (STUNAttribute attr in Attributes)
+            if (addFingerprint)
             {
-                attributeIndex += attr.ToByteBuffer(buffer, attributeIndex);
+                attributesLength += (ushort)(STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + FINGERPRINT_ATTRIBUTE_CRC32_LENGTH);
             }
 
-            //logger.LogDebug($"Pre HMAC STUN message: {ByteBufferInfo.HexStr(buffer, attributeIndex)}");
+            return STUNHeader.STUN_HEADER_LENGTH + attributesLength;
+        }
 
-            if (messageIntegrityKey != null)
+        public void WriteToBuffer(Span<byte> buffer, ReadOnlySpan<byte> messageIntegrityKey, bool addFingerprint)
+        {
+            var attributesLength = (ushort)(
+                GetByteBufferSize(messageIntegrityKey, addFingerprint)
+                - STUNHeader.STUN_HEADER_LENGTH
+                - (addFingerprint ? STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + FINGERPRINT_ATTRIBUTE_CRC32_LENGTH : 0)
+            );
+
+            // Write STUN header
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(0, 2), (ushort)Header.MessageType);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(2, 2), attributesLength);
+            BinaryPrimitives.WriteUInt32BigEndian(buffer.Slice(4, 4), STUNHeader.MAGIC_COOKIE);
+            Header.TransactionId.CopyTo(buffer.Slice(8, STUNHeader.TRANSACTION_ID_LENGTH));
+
+            var attributeIndex = 20;
+            foreach (var attr in Attributes)
             {
-                var integrityAttibtue = new STUNAttribute(STUNAttributeTypesEnum.MessageIntegrity, new byte[MESSAGE_INTEGRITY_ATTRIBUTE_HMAC_LENGTH]);
+                attributeIndex += attr.WriteBytes(buffer.Slice(attributeIndex));
+            }
 
-                HMACSHA1 hmacSHA = new HMACSHA1(messageIntegrityKey);
-                byte[] hmac = hmacSHA.ComputeHash(buffer, 0, attributeIndex);
-
-                integrityAttibtue.Value = hmac;
-                attributeIndex += integrityAttibtue.ToByteBuffer(buffer, attributeIndex);
+            if (!messageIntegrityKey.IsEmpty)
+            {
+                using var hmacSHA = new HMACSHA1(messageIntegrityKey.ToArray());
+                var message = buffer.Slice(0, attributeIndex);
+                var hmac = hmacSHA.ComputeHash(message);
+                var integrityAttribute = new STUNAttribute(STUNAttributeTypesEnum.MessageIntegrity, hmac.AsMemory());
+                attributeIndex += integrityAttribute.WriteBytes(buffer.Slice(attributeIndex));
             }
 
             if (addFingerprint)
             {
                 // The fingerprint attribute length has not been included in the length in the STUN header so adjust it now.
-                attributesLength += STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + FINGERPRINT_ATTRIBUTE_CRC32_LENGTH;
-                messageLength += STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + FINGERPRINT_ATTRIBUTE_CRC32_LENGTH;
+                BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(2, 2), attributesLength += STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + FINGERPRINT_ATTRIBUTE_CRC32_LENGTH);
 
-                    BinaryPrimitives.WriteUInt16BigEndian(buffer.AsSpan(2), attributesLength);
+                var input = buffer.Slice(0, buffer.Length - STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH - FINGERPRINT_ATTRIBUTE_CRC32_LENGTH);
+                var crc = Crc32.Compute(input) ^ FINGERPRINT_XOR;
+                var fingerprint = new byte[FINGERPRINT_ATTRIBUTE_CRC32_LENGTH];
+                BinaryPrimitives.WriteUInt32BigEndian(fingerprint, crc);
 
-                var fingerprintAttribute = new STUNAttribute(STUNAttributeTypesEnum.FingerPrint, new byte[FINGERPRINT_ATTRIBUTE_CRC32_LENGTH]);
-                uint crc = Crc32.Compute(buffer) ^ FINGERPRINT_XOR;
-                var fingerPrint = new byte[4];
-                BinaryPrimitives.WriteUInt32BigEndian(fingerPrint, crc);
-                fingerprintAttribute.Value = fingerPrint;
-
-                Array.Resize(ref buffer, messageLength);
-                fingerprintAttribute.ToByteBuffer(buffer, attributeIndex);
+                var fingerprintAttribute = new STUNAttribute(STUNAttributeTypesEnum.FingerPrint, fingerprint.AsMemory());
+                fingerprintAttribute.WriteBytes(buffer.Slice(attributeIndex));
             }
-
-            return buffer;
         }
 
         public override string ToString()
         {
-            string messageDescr = $"STUN Message: {Header.MessageType.ToString()}, length={Header.MessageLength}";
+            var builder = new StringBuilder();
+            WriteString(builder);
+            return builder.ToString();
+        }
 
-            foreach (STUNAttribute attribute in Attributes)
+        public void WriteString(StringBuilder builder)
+        {
+            Debug.Assert(Header is { });
+            Debug.Assert(Attributes is { });
+
+            builder
+                .Append("STUN Message: ")
+                .Append(Header.MessageType.ToStringFast())
+                .Append('[')
+                .Append((int)Header.MessageType)
+                .Append("], length=")
+                .Append(Header.MessageLength)
+                .Append(", transactionID=")
+                .Append(Header.TransactionId);
+
+            foreach (var attribute in Attributes)
             {
-                messageDescr += $"\n {attribute.ToString()}";
+                builder.Append("\n ");
+                attribute.WriteString(builder);
             }
-
-            return messageDescr;
         }
 
         /// <summary>
-        /// Returns the first attribute of the requested type, or <c>null</c> if none is
-        /// present. Plain <c>foreach</c> rather than LINQ so this stays cheap on the hot
-        /// path — STUN messages routinely carry only a handful of attributes.
+        /// Returns the first attribute of the requested type, or <c>null</c> if none is present. Plain <c>foreach</c>
+        /// rather than LINQ so this stays cheap on the hot path — STUN messages routinely carry only a handful of
+        /// attributes.
         /// </summary>
-        public STUNAttribute GetFirstAttribute(STUNAttributeTypesEnum attributeType)
+        public STUNAttribute? GetFirstAttribute(STUNAttributeTypesEnum attributeType)
         {
             foreach (var attribute in Attributes)
             {
@@ -257,63 +327,68 @@ namespace SIPSorcery.Net
         /// <summary>
         /// Check that the message integrity attribute is correct.
         /// </summary>
-        /// <param name="messageIntegrityKey">The message integrity key that was used to generate
-        /// the HMAC for the original message.</param>
-        /// <returns>True if the HMAC of the STUN message is valid. False if not.</returns>
+        /// <param name="messageIntegrityKey">
+        /// The message integrity key that was used to generate the HMAC for the original message.
+        /// </param>
+        /// <returns>True if the fingerprint and HMAC of the STUN message are valid. False if not.</returns>
         public bool CheckIntegrity(byte[] messageIntegrityKey)
         {
-            bool isHmacValid = false;
-
             // Find the MESSAGE-INTEGRITY attribute. It can be either:
             // - The last attribute (no FINGERPRINT present)
             // - The second-to-last attribute (FINGERPRINT is last)
-            STUNAttribute messageIntegrityAttribute = null;
-            bool hasFingerprint = false;
+            STUNAttribute messageIntegrityAttribute;
+            var hasFingerprint = false;
 
-            if (Attributes.Count >= 1 && Attributes[Attributes.Count - 1].AttributeType == STUNAttributeTypesEnum.MessageIntegrity)
+            if (Attributes.Count > 1 && Attributes[Attributes.Count - 1].AttributeType == STUNAttributeTypesEnum.MessageIntegrity)
             {
                 messageIntegrityAttribute = Attributes[Attributes.Count - 1];
             }
             else if (Attributes.Count >= 2 && Attributes[Attributes.Count - 1].AttributeType == STUNAttributeTypesEnum.FingerPrint
-                     && Attributes[Attributes.Count - 2].AttributeType == STUNAttributeTypesEnum.MessageIntegrity)
+                && Attributes[Attributes.Count - 2].AttributeType == STUNAttributeTypesEnum.MessageIntegrity)
             {
                 messageIntegrityAttribute = Attributes[Attributes.Count - 2];
                 hasFingerprint = true;
             }
-
-            if (messageIntegrityAttribute != null && _receivedBuffer != null)
+            else
             {
-                // When FINGERPRINT is present and valid, verify it first.
-                if (hasFingerprint && !isFingerprintValid)
-                {
-                    return false;
-                }
-
-                // Calculate the pre-image length: everything before the MESSAGE-INTEGRITY attribute.
-                int fingerprintSize = hasFingerprint
-                    ? STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + FINGERPRINT_ATTRIBUTE_CRC32_LENGTH
-                    : 0;
-
-                int preImageLength = _receivedBuffer.Length
-                    - fingerprintSize
-                    - STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH
-                    - MESSAGE_INTEGRITY_ATTRIBUTE_HMAC_LENGTH;
-
-                // Per RFC 5389 Section 15.4: the message length field must be adjusted to
-                // include MESSAGE-INTEGRITY but exclude FINGERPRINT (if present).
-                ushort length = hasFingerprint
-                    ? (ushort)(Header.MessageLength - STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH - FINGERPRINT_ATTRIBUTE_CRC32_LENGTH)
-                    : Header.MessageLength;
-
-                    BinaryPrimitives.WriteUInt16BigEndian(_receivedBuffer.AsSpan(2), length);
-
-                HMACSHA1 hmacSHA = new HMACSHA1(messageIntegrityKey);
-                byte[] calculatedHmac = hmacSHA.ComputeHash(_receivedBuffer, 0, preImageLength);
-
-                isHmacValid = messageIntegrityAttribute.Value.HexStr() == calculatedHmac.HexStr();
+                return false;
             }
 
-            return isHmacValid;
+            Debug.Assert(messageIntegrityAttribute is not null);
+
+            if (_receivedBuffer.IsEmpty)
+            {
+                return false;
+            }
+
+            // When FINGERPRINT is present and valid, verify it first.
+            if (hasFingerprint && !isFingerprintValid)
+            {
+                return false;
+            }
+
+            // Calculate the pre-image length: everything before the MESSAGE-INTEGRITY attribute.
+            int fingerprintSize = hasFingerprint
+                ? STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH + FINGERPRINT_ATTRIBUTE_CRC32_LENGTH
+                : 0;
+
+            int preImageLength = _receivedBuffer.Length
+                - fingerprintSize
+                - STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH
+                - MESSAGE_INTEGRITY_ATTRIBUTE_HMAC_LENGTH;
+
+            // Per RFC 5389 Section 15.4: the message length field must be adjusted to
+            // include MESSAGE-INTEGRITY but exclude FINGERPRINT (if present).
+            var length = hasFingerprint
+                ? (ushort)(Header.MessageLength - STUNAttribute.STUNATTRIBUTE_HEADER_LENGTH - FINGERPRINT_ATTRIBUTE_CRC32_LENGTH)
+                : Header.MessageLength;
+
+            BinaryPrimitives.WriteUInt16BigEndian(_receivedBuffer.Span.Slice(2, 2), length);
+
+            HMACSHA1 hmacSHA = new HMACSHA1(messageIntegrityKey);
+            byte[] calculatedHmac = hmacSHA.ComputeHash(_receivedBuffer.Slice(0, preImageLength));
+
+            return messageIntegrityAttribute.Value.Span.SequenceEqual(calculatedHmac);
         }
     }
 }

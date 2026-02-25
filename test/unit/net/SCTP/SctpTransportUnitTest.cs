@@ -303,7 +303,7 @@ namespace SIPSorcery.Net.UnitTests
             return base.GetCookie(sctpPacket);
         }
 
-        public override void Send(string associationID, byte[] buffer, int offset, int length)
+        public override void Send(string associationID, ReadOnlyMemory<byte> buffer, IDisposable memoryOwner = null)
         { }
     }
 }

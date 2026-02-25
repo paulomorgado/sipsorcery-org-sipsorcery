@@ -77,9 +77,9 @@ public class RawImage
     /// <see cref="Sample"/> directly when the frame is fully consumed before the handler returns.
     /// </para>
     /// </remarks>
-    public byte[] GetBuffer()
+    public byte[]? GetBuffer()
     {
-        byte[] result = null;
+        byte[]? result = null;
 
         if (BufferSize > 0)
         {

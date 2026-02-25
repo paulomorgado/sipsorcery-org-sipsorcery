@@ -16,6 +16,7 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -71,7 +72,7 @@ public interface IVideoSink
     /// <remarks>
     /// The sample is only valid for the duration of the handler. See <see cref="IVideoSink"/>.
     /// </remarks>
-    event VideoSinkSampleDecodedDelegate OnVideoSinkDecodedSample;
+    event VideoSinkSampleDecodedDelegate? OnVideoSinkDecodedSample;
 
     /// <summary>
     /// As for <see cref="OnVideoSinkDecodedSample"/> but avoids a byte[] allocation per frame.
@@ -80,11 +81,11 @@ public interface IVideoSink
     /// The <see cref="RawImage.Sample"/> pointer is only valid for the duration of the handler.
     /// See <see cref="IVideoSink"/>.
     /// </remarks>
-    event VideoSinkSampleDecodedFasterDelegate OnVideoSinkDecodedSampleFaster; // Avoid to use byte[] to improve performance
+    event VideoSinkSampleDecodedFasterDelegate? OnVideoSinkDecodedSampleFaster; // Avoid to use byte[] to improve performance
 
     void GotVideoRtp(IPEndPoint remoteEndPoint, uint ssrc, uint seqnum, uint timestamp, int payloadID, bool marker, byte[] payload);
 
-    void GotVideoFrame(IPEndPoint remoteEndPoint, uint timestamp, byte[] payload, VideoFormat format);
+    void GotVideoFrame(IPEndPoint remoteEndPoint, uint timestamp, ReadOnlyMemory<byte> payload, VideoFormat format);
 
     List<VideoFormat> GetVideoSinkFormats();
 

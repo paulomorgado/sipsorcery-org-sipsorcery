@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // Filename: RTPSessionSecureContextBufferingUnitTest.cs
 //
 // Description: Unit tests for the buffering of RTP and RTCP packets that arrive
@@ -14,6 +14,7 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Net;
 using Microsoft.Extensions.Logging;
@@ -58,9 +59,9 @@ namespace SIPSorcery.Net.UnitTests
                 SetGlobalSecurityContext(PassThrough, PassThrough, PassThrough, PassThrough);
             }
 
-            private static int PassThrough(byte[] payload, int length, out int outputBufferLength)
+            private static int PassThrough(ReadOnlyMemory<byte> payload, Memory<byte> output, out int outputBufferLength)
             {
-                outputBufferLength = length;
+                outputBufferLength = output.Length;
                 return 0;
             }
         }
@@ -86,7 +87,7 @@ namespace SIPSorcery.Net.UnitTests
         /// </summary>
         private static byte[] CreateRtpPacket(ushort seqNum)
         {
-            var packet = new RTPPacket(80);
+            var packet = new RTPPacket(new byte[80]);
             packet.Header.PayloadType = (int)SDPWellKnownMediaFormatsEnum.PCMU;
             packet.Header.SequenceNumber = seqNum;
             packet.Header.SyncSource = 1234;

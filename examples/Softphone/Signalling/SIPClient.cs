@@ -389,7 +389,7 @@ namespace SIPSorcery.SoftPhone
 
             if (rawVideoSource is AudioScopeVideoSource audioScope)
             {
-                mediaSession.OnAudioFrameReceived += (audioFrame) => audioScope.PushAudio(audioFrame?.EncodedAudio, audioFrame?.AudioFormat);
+                mediaSession.OnAudioFrameReceived += (audioFrame) => audioScope.PushAudio(audioFrame?.EncodedAudio.ToArray(), audioFrame?.AudioFormat);
             }
 
             if (videoSinkEndPoint != null)
@@ -447,7 +447,7 @@ namespace SIPSorcery.SoftPhone
 
             if (rawVideoSource is AudioScopeVideoSource audioScope)
             {
-                pc.OnAudioFrameReceived += (audioFrame) => audioScope.PushAudio(audioFrame?.EncodedAudio, audioFrame?.AudioFormat);
+                pc.OnAudioFrameReceived += (audioFrame) => audioScope.PushAudio(audioFrame?.EncodedAudio.ToArray(), audioFrame?.AudioFormat);
             }
 
             if (videoEndPoint != null)

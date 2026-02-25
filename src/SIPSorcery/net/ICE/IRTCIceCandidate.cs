@@ -67,8 +67,7 @@ namespace SIPSorcery.Net
         closed,
 
         /// <summary>
-        /// The connection attempt has failed or connection checks on an established
-        /// connection have failed.
+        /// The connection attempt has failed or connection checks on an established connection have failed.
         /// </summary>
         failed,
 
@@ -107,10 +106,10 @@ namespace SIPSorcery.Net
     /// </remarks>
     public class RTCIceCandidateInit
     {
-        public string candidate { get; set; }
-        public string sdpMid { get; set; }
+        public string? candidate { get; set; }
+        public string? sdpMid { get; set; }
         public ushort sdpMLineIndex { get; set; }
-        public string usernameFragment { get; set; }
+        public string? usernameFragment { get; set; }
 
         public string toJSON()
         {
@@ -133,18 +132,18 @@ namespace SIPSorcery.Net
             if (usernameFragment != null)
             {
                 writer.WriteString(nameof(usernameFragment), usernameFragment);
-            }
+        }
 
             writer.End();
 
             return builder.ToString();
         }
 
-        public static bool TryParse(string json, out RTCIceCandidateInit init)
+        public static bool TryParse(string json, out RTCIceCandidateInit? init)
         {
             init = null;
 
-            if (string.IsNullOrWhiteSpace(json) || !JsonObjectParser.TryCreate(json, out var parser))
+            if (json.IsEmptyOrWhiteSpace() || !JsonObjectParser.TryCreate(json, out var parser))
             {
                 return false;
             }
@@ -290,19 +289,19 @@ namespace SIPSorcery.Net
     {
         //constructor(optional RTCIceCandidateInit candidateInitDict = { });
         string candidate { get; }
-        string sdpMid { get; }
+        string? sdpMid { get; }
         ushort sdpMLineIndex { get; }
-        string foundation { get; }
+        string? foundation { get; }
         RTCIceComponent component { get; }
         uint priority { get; }
-        string address { get; }
+        string? address { get; }
         RTCIceProtocol protocol { get; }
         ushort port { get; }
         RTCIceCandidateType type { get; }
         RTCIceTcpCandidateType tcpType { get; }
-        string relatedAddress { get; }
+        string? relatedAddress { get; }
         ushort relatedPort { get; }
-        string usernameFragment { get; }
+        string? usernameFragment { get; }
         //RTCIceCandidateInit toJSON();
         string toJSON();
     }

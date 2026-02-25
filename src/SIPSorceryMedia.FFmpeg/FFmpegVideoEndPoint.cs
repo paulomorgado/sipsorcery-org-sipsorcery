@@ -140,9 +140,9 @@ public class FFmpegVideoEndPoint : IVideoEndPoint, IDisposable
         return _ffmpegEncoder.SetCodec(codecID.Value, name, opts);
     }
 
-    public void GotVideoFrame(IPEndPoint remoteEndPoint, uint timestamp, byte[] payload, VideoFormat format)
+        public void GotVideoFrame(IPEndPoint remoteEndPoint, uint timestamp, ReadOnlyMemory<byte> payload, VideoFormat format)
     {
-        if (!_isClosed && !_isSinkClosed && !_isSinkPaused && payload != null &&
+        if (!_isClosed && !_isSinkClosed && !_isSinkPaused && !payload.IsEmpty &&
             (OnVideoSinkDecodedSampleFaster != null || OnVideoSinkDecodedSample != null))
         {
             if (_videoFormatManager.SelectedFormat.Codec != format.Codec)
@@ -162,7 +162,7 @@ public class FFmpegVideoEndPoint : IVideoEndPoint, IDisposable
             AVCodecID? codecID = FFmpegConvert.GetAVCodecID(_videoFormatManager.SelectedFormat.Codec);
             if(codecID != null)
             {
-                var imageRawSamples = _ffmpegEncoder.DecodeFaster(codecID.Value, payload, out var width, out var height);
+                var imageRawSamples = _ffmpegEncoder.DecodeFaster(codecID.Value, payload.ToArray(), out var width, out var height);
 
                 if (imageRawSamples == null || width == 0 || height == 0)
                 {

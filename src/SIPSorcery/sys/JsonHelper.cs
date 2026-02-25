@@ -545,7 +545,7 @@ namespace SIPSorcery.Sys
             i++;
 
             var start = i;
-            StringBuilder builder = null;
+            StringBuilder? builder = null;
 
             while (i < json.Length)
             {
