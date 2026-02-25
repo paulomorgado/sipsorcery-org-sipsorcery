@@ -64,7 +64,7 @@ namespace SIPSorcery.Sys
             var i = salt.IndexOf('.');
             var iters = int.Parse(salt.Substring(0, i), System.Globalization.NumberStyles.HexNumber);
             salt = salt.Substring(i + 1);
-            byte[] key = null;
+            byte[] key;
 
             byte[] saltBytes = Convert.FromBase64String(salt);
 

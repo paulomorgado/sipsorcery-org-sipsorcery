@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // Filename: SafeXML.cs
 //
 // Description: Converts special characters in XML to their safe equivalent.
@@ -12,6 +12,8 @@
 // License:
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
+
+#nullable disable
 
 using System;
 using System.Text.RegularExpressions;

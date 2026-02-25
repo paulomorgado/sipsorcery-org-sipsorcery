@@ -1,4 +1,4 @@
-﻿  //-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // Filename: TurnClient.cs
 //
 // Description: TURN client implementation. Initial use case is to allocate a relay
@@ -15,14 +15,16 @@
 // BDS BY-NC-SA restriction, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+#nullable disable
+
 using System;
+using System.Buffers.Binary;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Buffers.Binary;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Crypto.Digests;
 using SIPSorcery.Sys;
@@ -272,7 +274,7 @@ public class TurnClient
 
                 if (permissionLifetime != null)
                 {
-                    permissionDuration = TimeSpan.FromSeconds(BinaryPrimitives.ReadUInt32BigEndian(permissionLifetime.Value));
+                    permissionDuration = TimeSpan.FromSeconds(BinaryPrimitives.ReadUInt32BigEndian(permissionLifetime.Value.Span));
 
                     logger.LogDebug("TURN permission lifetime attribute value {lifetimeSeconds}s.", permissionDuration.TotalSeconds);
                 }
@@ -350,7 +352,7 @@ public class TurnClient
 
         if (lifetimeAttribute != null)
         {
-            var lifetimeSpan = TimeSpan.FromSeconds(BinaryPrimitives.ReadUInt32BigEndian(lifetimeAttribute.Value));
+            var lifetimeSpan = TimeSpan.FromSeconds(BinaryPrimitives.ReadUInt32BigEndian(lifetimeAttribute.Value.Span));
 
             logger.LogDebug("TURN allocate lifetime attribute value {lifetimeSeconds}s.", lifetimeSpan.TotalSeconds);
 
@@ -384,10 +386,10 @@ public class TurnClient
     {
         // Set the authentication properties authenticate.
         var nonceAttribute = stunResponse.Attributes.FirstOrDefault(x => x.AttributeType == STUNAttributeTypesEnum.Nonce);
-        _iceServer.Nonce = nonceAttribute?.Value;
+        _iceServer.Nonce = nonceAttribute?.Value ?? default;
 
         var realmAttribute = stunResponse.Attributes.FirstOrDefault(x => x.AttributeType == STUNAttributeTypesEnum.Realm);
-        _iceServer.Realm = realmAttribute?.Value;
+        _iceServer.Realm = realmAttribute?.Value ?? default;
     }
 
     /// <summary>
@@ -416,13 +418,14 @@ public class TurnClient
 
         byte[] allocateReqBytes = null;
 
-        if (iceServer.Nonce != null && iceServer.Realm != null && iceServer._username != null && iceServer._password != null)
+        if (iceServer.Nonce.IsEmpty && iceServer.Realm.IsEmpty && iceServer.Username.IsEmpty && iceServer.Password.IsEmpty)
         {
-            allocateReqBytes = GetAuthenticatedStunRequest(allocateRequest, iceServer._username, iceServer.Realm, iceServer._password, iceServer.Nonce);
+            allocateReqBytes = GetAuthenticatedStunRequest(allocateRequest, iceServer.Username, iceServer.Realm, iceServer.Password, iceServer.Nonce);
         }
         else
         {
-            allocateReqBytes = allocateRequest.ToByteBuffer(null, false);
+            allocateReqBytes = new byte[allocateRequest.GetByteBufferSize(null, false)];
+            allocateRequest.WriteToBuffer(allocateReqBytes, null, false);
         }
 
         var sendResult = _rtpChannel.Send(RTPChannelSocketsEnum.RTP, iceServer.ServerEndPoint, allocateReqBytes);
@@ -430,7 +433,7 @@ public class TurnClient
         if (sendResult != SocketError.Success)
         {
             logger.LogWarning("Error sending TURN Allocate request {OutstandingRequestsSent} for {Uri} to {ServerEndPoint}. {SendResult}.",
-                iceServer.OutstandingRequestsSent, iceServer._uri, iceServer.ServerEndPoint, sendResult);
+                iceServer.OutstandingRequestsSent, iceServer.Uri, iceServer.ServerEndPoint, sendResult);
         }
         else
         {
@@ -466,13 +469,14 @@ public class TurnClient
 
         byte[] createPermissionReqBytes = null;
 
-        if (iceServer.Nonce != null && iceServer.Realm != null && iceServer._username != null && iceServer._password != null)
+        if (iceServer.Nonce.IsEmpty && iceServer.Realm.IsEmpty && iceServer.Username.IsEmpty && iceServer.Password.IsEmpty)
         {
-            createPermissionReqBytes = GetAuthenticatedStunRequest(permissionsRequest, iceServer._username, iceServer.Realm, iceServer._password, iceServer.Nonce);
+            createPermissionReqBytes = GetAuthenticatedStunRequest(permissionsRequest, iceServer.Username, iceServer.Realm, iceServer.Password, iceServer.Nonce);
         }
         else
         {
-            createPermissionReqBytes = permissionsRequest.ToByteBuffer(null, false);
+            createPermissionReqBytes = new byte[permissionsRequest.GetByteBufferSize(null, false)];
+            permissionsRequest.WriteToBuffer(createPermissionReqBytes, null, false);
         }
 
         var sendResult = _rtpChannel.Send(RTPChannelSocketsEnum.RTP, iceServer.ServerEndPoint, createPermissionReqBytes);
@@ -480,7 +484,7 @@ public class TurnClient
         if (sendResult != SocketError.Success)
         {
             logger.LogWarning("Error sending TURN Create Permissions request {OutstandingRequestsSent} for {Uri} to {ServerEndPoint}. {SendResult}.",
-                iceServer.OutstandingRequestsSent, iceServer._uri, iceServer.ServerEndPoint, sendResult);
+                iceServer.OutstandingRequestsSent, iceServer.Uri, iceServer.ServerEndPoint, sendResult);
         }
         else
         {
@@ -515,13 +519,14 @@ public class TurnClient
 
         byte[] allocateReqBytes = null;
 
-        if (iceServer.Nonce != null && iceServer.Realm != null && iceServer._username != null && iceServer._password != null)
+        if (iceServer.Nonce.IsEmpty && iceServer.Realm.IsEmpty && iceServer.Username.IsEmpty && iceServer.Password.IsEmpty)
         {
-            allocateReqBytes = GetAuthenticatedStunRequest(allocateRequest, iceServer._username, iceServer.Realm, iceServer._password, iceServer.Nonce);
+            allocateReqBytes = GetAuthenticatedStunRequest(allocateRequest, iceServer.Username, iceServer.Realm, iceServer.Password, iceServer.Nonce);
         }
         else
         {
-            allocateReqBytes = allocateRequest.ToByteBuffer(null, false);
+            allocateReqBytes = new byte[allocateRequest.GetByteBufferSize(null, false)];
+            allocateRequest.WriteToBuffer(allocateReqBytes, null, false);
         }
 
         var sendResult = _rtpChannel.Send(RTPChannelSocketsEnum.RTP, iceServer.ServerEndPoint, allocateReqBytes);
@@ -529,7 +534,7 @@ public class TurnClient
         if (sendResult != SocketError.Success)
         {
             logger.LogWarning("Error sending TURN Refresh request {OutstandingRequestsSent} for {Uri} to {ServerEndPoint}. {SendResult}.",
-                iceServer.OutstandingRequestsSent, iceServer._uri, iceServer.ServerEndPoint, sendResult);
+                iceServer.OutstandingRequestsSent, iceServer.Uri, iceServer.ServerEndPoint, sendResult);
         }
         else
         {
@@ -543,14 +548,14 @@ public class TurnClient
     /// Adds the authentication fields to a STUN request.
     /// </summary>
     /// <returns>The serialised STUN request.</returns>
-    private byte[] GetAuthenticatedStunRequest(STUNMessage stunRequest, string username, byte[] realm, string password, byte[] nonce)
+    private byte[] GetAuthenticatedStunRequest(STUNMessage stunRequest, ReadOnlyMemory<byte> username, ReadOnlyMemory<byte> realm, ReadOnlyMemory<byte> password, ReadOnlyMemory<byte> nonce)
     {
         stunRequest.Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Nonce, nonce));
         stunRequest.Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Realm, realm));
         stunRequest.AddUsernameAttribute(username);
 
         // See https://tools.ietf.org/html/rfc5389#section-15.4
-        string key = $"{username}:{Encoding.UTF8.GetString(realm)}:{password}";
+        string key = $"{username.ToString()}:{Encoding.UTF8.GetString(realm.Span)}:{password.ToString()}";
         var buffer = Encoding.UTF8.GetBytes(key);
         var md5Digest = new MD5Digest();
         var hash = new byte[md5Digest.GetDigestSize()];
@@ -558,7 +563,9 @@ public class TurnClient
         md5Digest.BlockUpdate(buffer, 0, buffer.Length);
         md5Digest.DoFinal(hash, 0);
 
-        return stunRequest.ToByteBuffer(hash, true);
+        var requestBytes = new byte[stunRequest.GetByteBufferSize(hash, true)];
+        stunRequest.WriteToBuffer(requestBytes, hash, true);
+        return requestBytes;
     }
 
     private void OnClosed(string closeReason)

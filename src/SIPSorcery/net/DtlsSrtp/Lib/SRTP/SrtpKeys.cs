@@ -20,27 +20,25 @@
 // SOFTWARE.
 
 using System;
-using System.Linq;
 
-namespace SIPSorcery.Net.SharpSRTP.SRTP
+namespace SIPSorcery.Net.SharpSRTP.SRTP;
+
+public class SrtpKeys
 {
-    public class SrtpKeys
+    public SrtpProtectionProfileConfiguration ProtectionProfile { get; }
+    public byte[]? Mki { get; }
+
+    public byte[] MasterKey { get { return MasterKeySalt.AsSpan(0, ProtectionProfile.CipherKeyLength >> 3).ToArray(); } }
+    public byte[] MasterSalt { get { return MasterKeySalt.AsSpan(ProtectionProfile.CipherKeyLength >> 3).ToArray(); } }
+    public byte[] MasterKeySalt { get; }
+
+    public SrtpKeys(SrtpProtectionProfileConfiguration protectionProfile, byte[]? mki = null)
     {
-        public SrtpProtectionProfileConfiguration ProtectionProfile { get; }
-        public byte[] Mki { get; }
+        this.ProtectionProfile = protectionProfile ?? throw new ArgumentNullException(nameof(protectionProfile));
+        this.Mki = mki;
 
-        public byte[] MasterKey { get { return MasterKeySalt.Take(ProtectionProfile.CipherKeyLength >> 3).ToArray(); } }
-        public byte[] MasterSalt { get { return MasterKeySalt.Skip(ProtectionProfile.CipherKeyLength >> 3).ToArray(); } }
-        public byte[] MasterKeySalt { get; }
-
-        public SrtpKeys(SrtpProtectionProfileConfiguration protectionProfile, byte[] mki = null)
-        {
-            this.ProtectionProfile = protectionProfile ?? throw new ArgumentNullException(nameof(protectionProfile));
-            this.Mki = mki;
-
-            int cipherKeyLen = protectionProfile.CipherKeyLength >> 3;
-            int cipherSaltLen = protectionProfile.CipherSaltLength >> 3;
-            this.MasterKeySalt = new byte[cipherKeyLen + cipherSaltLen];
-        }
+        int cipherKeyLen = protectionProfile.CipherKeyLength >> 3;
+        int cipherSaltLen = protectionProfile.CipherSaltLength >> 3;
+        this.MasterKeySalt = new byte[cipherKeyLen + cipherSaltLen];
     }
 }

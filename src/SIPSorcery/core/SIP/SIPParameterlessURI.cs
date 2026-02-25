@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Filename: SIPParameterlessURI.cs
 //
 // Description: SIP URI that discards any parameters or headers. This type of URI is used for
@@ -13,6 +13,8 @@
 // License: 
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
+
+#nullable disable
 
 using System;
 using System.Runtime.Serialization;

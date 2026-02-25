@@ -22,30 +22,29 @@
 using System;
 using SIPSorcery.Net.SharpSRTP.SRTP;
 
-namespace SIPSorcery.Net.SharpSRTP.DTLSSRTP
+namespace SIPSorcery.Net.SharpSRTP.DTLSSRTP;
+
+public class DtlsSrtpKeys
 {
-    public class DtlsSrtpKeys
+    public SrtpProtectionProfileConfiguration ProtectionProfile { get; }
+    public byte[]? Mki { get; }
+
+    public byte[] ClientWriteMasterKey { get; }
+    public byte[] ClientWriteMasterSalt { get; }
+    public byte[] ServerWriteMasterKey { get; }
+    public byte[] ServerWriteMasterSalt { get; }
+
+    public DtlsSrtpKeys(SrtpProtectionProfileConfiguration protectionProfile, byte[]? mki = null)
     {
-        public SrtpProtectionProfileConfiguration ProtectionProfile { get; }
-        public byte[] Mki { get; }
+        this.ProtectionProfile = protectionProfile ?? throw new ArgumentNullException(nameof(protectionProfile));
+        this.Mki = mki;
 
-        public byte[] ClientWriteMasterKey { get; }
-        public byte[] ClientWriteMasterSalt { get; }
-        public byte[] ServerWriteMasterKey { get; }
-        public byte[] ServerWriteMasterSalt { get; }
+        int cipherKeyLen = protectionProfile.CipherKeyLength >> 3;
+        int cipherSaltLen = protectionProfile.CipherSaltLength >> 3;
 
-        public DtlsSrtpKeys(SrtpProtectionProfileConfiguration protectionProfile, byte[] mki = null)
-        {
-            this.ProtectionProfile = protectionProfile ?? throw new ArgumentNullException(nameof(protectionProfile));
-            this.Mki = mki;
-
-            int cipherKeyLen = protectionProfile.CipherKeyLength >> 3;
-            int cipherSaltLen = protectionProfile.CipherSaltLength >> 3;
-
-            this.ClientWriteMasterKey = new byte[cipherKeyLen];
-            this.ClientWriteMasterSalt = new byte[cipherSaltLen];
-            this.ServerWriteMasterKey = new byte[cipherKeyLen];
-            this.ServerWriteMasterSalt = new byte[cipherSaltLen];
-        }
+        this.ClientWriteMasterKey = new byte[cipherKeyLen];
+        this.ClientWriteMasterSalt = new byte[cipherSaltLen];
+        this.ServerWriteMasterKey = new byte[cipherKeyLen];
+        this.ServerWriteMasterSalt = new byte[cipherSaltLen];
     }
 }

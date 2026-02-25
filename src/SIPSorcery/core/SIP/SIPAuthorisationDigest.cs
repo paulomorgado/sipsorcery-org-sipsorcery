@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Filename: SIPAuthorisationDigest.cs
 //
 // Description: Implements Digest Authentication as defined in RFC2617.
@@ -12,6 +12,8 @@
 // License: 
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
+
+#nullable disable
 
 using System;
 using System.Security.Cryptography;

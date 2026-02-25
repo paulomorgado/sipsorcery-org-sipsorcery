@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using SIPSorcery.UnitTests;
 using Xunit;
 
 namespace SIPSorcery.Net.UnitTests
@@ -20,8 +21,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void KeySaltBase64Test()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.KeyParameter keyParameter = KeyParameterFactory.Create("ĀĀ\0\0\0\0\0\0\0\0\0\0\0\0\0\0", "ĀĀĀ\0\0\0\0\0\0\0\0\0\0\0");
             Assert.NotNull((object)keyParameter);
@@ -38,8 +39,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void LifeTimeTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.KeyParameter keyParameter = KeyParameterFactory.Create("ĀĀ\0\0\0\0\0\0\0\0\0\0\0\0\0\0", "ĀĀĀ\0\0\0\0\0\0\0\0\0\0\0");
             Assert.Throws<ArgumentOutOfRangeException>(() => keyParameter.LifeTime = 0);
@@ -60,8 +61,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void LifeTimeStringTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.KeyParameter keyParameter = KeyParameterFactory.Create("ĀĀ\0\0\0\0\0\0\0\0\0\0\0\0\0\0", "ĀĀĀ\0\0\0\0\0\0\0\0\0\0\0");
             Assert.Throws<ArgumentException>(() => keyParameter.LifeTimeString = null);
@@ -92,34 +93,34 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
-            SDPSecurityDescription.KeyParameter kp1 = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4");
+            SDPSecurityDescription.KeyParameter kp1 = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4".AsSpan());
             Assert.Equal("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4", kp1.ToString());
-            Assert.Equal(kp1.ToString(), SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4").ToString());
-            Assert.Equal(kp1.ToString(), SDPSecurityDescription.KeyParameter.Parse(kp1.ToString()).ToString());
+            Assert.Equal(kp1.ToString(), SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4".AsSpan()).ToString());
+            Assert.Equal(kp1.ToString(), SDPSecurityDescription.KeyParameter.Parse(kp1.ToString().AsSpan()).ToString());
             Assert.Equal(4u, kp1.MkiLength);
             Assert.Equal(1u, kp1.MkiValue);
             Assert.Equal((ulong)Math.Pow(2, 20), kp1.LifeTime);
             Assert.Equal("2^20", kp1.LifeTimeString);
             Assert.Equal("MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm", kp1.KeySaltBase64);
 
-            SDPSecurityDescription.KeyParameter kp2 = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20");
+            SDPSecurityDescription.KeyParameter kp2 = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20".AsSpan());
             Assert.Equal((ulong)Math.Pow(2, 20), kp2.LifeTime);
             Assert.Equal("2^20", kp2.LifeTimeString);
             Assert.Equal(0u, kp2.MkiLength);
             Assert.Equal(0u, kp2.MkiValue);
 
-            SDPSecurityDescription.KeyParameter kp3 = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|1:4");
+            SDPSecurityDescription.KeyParameter kp3 = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|1:4".AsSpan());
             Assert.Equal(0uL, kp3.LifeTime);
             Assert.Equal(4u, actual: kp3.MkiLength);
             Assert.Equal(1u, kp3.MkiValue);
 
-            SDPSecurityDescription.KeyParameter kp4 = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|1:4|2^20");
+            SDPSecurityDescription.KeyParameter kp4 = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|1:4|2^20".AsSpan());
             Assert.Equal("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4", kp4.ToString());
-            Assert.Equal(SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4").ToString(), kp4.ToString());
-            Assert.Equal(SDPSecurityDescription.KeyParameter.Parse(kp4.ToString()).ToString(), kp4.ToString());
+            Assert.Equal(SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4".AsSpan()).ToString(), kp4.ToString());
+            Assert.Equal(SDPSecurityDescription.KeyParameter.Parse(kp4.ToString().AsSpan()).ToString(), kp4.ToString());
             Assert.Equal(4u, kp4.MkiLength);
             Assert.Equal(1u, kp4.MkiValue);
             Assert.Equal((ulong)Math.Pow(2, 20), kp4.LifeTime);
@@ -127,17 +128,16 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Equal("MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm", kp4.KeySaltBase64);
 
             SDPSecurityDescription.KeyParameter kp5 = KeyParameterFactory.Create("ĀĀ\0\0\0\0\0\0\0\0\0\0\0\0\0\0", "ĀĀĀ\0\0\0\0\0\0\0\0\0\0\0");
-            Assert.Equal(SDPSecurityDescription.KeyParameter.Parse(kp5.ToString()).ToString(), kp5.ToString());
+            Assert.Equal(SDPSecurityDescription.KeyParameter.Parse(kp5.ToString().AsSpan()).ToString(), kp5.ToString());
 
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse(null));
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse(""));
+            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse(default));
 
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4;inline:QUJjZGVmMTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5|2^20|2:4"));
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|20^2|1:4"));
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^0|1:4"));
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTINDU2Nzg5QUJjZGVm|2^20|1:4"));
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|14"));
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline: MTIzNDU2Nzg5QUJDREUwMTINDU2Nzg5QUJjZGVm|2^20|1:4"));
+            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4;inline:QUJjZGVmMTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5|2^20|2:4".AsSpan()));
+            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|20^2|1:4".AsSpan()));
+            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^0|1:4".AsSpan()));
+            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTINDU2Nzg5QUJjZGVm|2^20|1:4".AsSpan()));
+            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|14".AsSpan()));
+            Assert.Throws<FormatException>(() => SDPSecurityDescription.KeyParameter.Parse("inline: MTIzNDU2Nzg5QUJDREUwMTINDU2Nzg5QUJjZGVm|2^20|1:4".AsSpan()));
         }
     }
 }

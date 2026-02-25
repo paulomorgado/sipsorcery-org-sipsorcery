@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -79,7 +80,9 @@ namespace SIPSorceryMedia.FFmpeg
             if (_ffmpegEncoder != null)
             {
                 if (FFmpegConvert.GetAVCodecID(codec) is var cdc && cdc is not null)
+                {
                     return _ffmpegEncoder.SetCodec((AVCodecID)cdc, name, opts);
+                }
                 else
                 {
                     logger.LogError("Codec {codec} is not supported by this endpoint.", codec);
@@ -93,9 +96,9 @@ namespace SIPSorceryMedia.FFmpeg
             }
         }
 
-        public void GotVideoFrame(IPEndPoint remoteEndPoint, uint timestamp, byte[] payload, VideoFormat format)
+        public void GotVideoFrame(IPEndPoint remoteEndPoint, uint timestamp, ReadOnlyMemory<byte> payload, VideoFormat format)
         {
-            if ( (!_isClosed) && (payload != null) && (OnVideoSinkDecodedSampleFaster != null) )
+            if ( (!_isClosed) && (!payload.IsEmpty) && (OnVideoSinkDecodedSampleFaster != null) )
             {
                 if (_videoFormatManager.SelectedFormat.Codec != format.Codec)
                 {
@@ -113,8 +116,8 @@ namespace SIPSorceryMedia.FFmpeg
 
                 AVCodecID? codecID = FFmpegConvert.GetAVCodecID(_videoFormatManager.SelectedFormat.Codec);
                 if(codecID != null)
-                { 
-                    var imageRawSamples = _ffmpegEncoder.DecodeFaster(codecID.Value, payload, out var width, out var height);
+                {
+                    var imageRawSamples = _ffmpegEncoder.DecodeFaster(codecID.Value, payload.ToArray(), out var width, out var height);
 
                     if (imageRawSamples == null || width == 0 || height == 0)
                     {

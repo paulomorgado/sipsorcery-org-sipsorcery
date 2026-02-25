@@ -114,7 +114,7 @@ namespace RtspToWebRtcRestreamer
                     {
                         try
                         {                                                 
-                            pc.SendRtpRaw(media, rtpPkt.Payload, rtpPkt.Header.Timestamp, rtpPkt.Header.MarkerBit, rtpPkt.Header.PayloadType);                                                          
+                            pc.SendRtpRaw(media, rtpPkt.Payload.Span, rtpPkt.Header.Timestamp, rtpPkt.Header.MarkerBit, rtpPkt.Header.PayloadType);                                                          
                         }
                         catch (Exception ex)
                         {
@@ -125,7 +125,7 @@ namespace RtspToWebRtcRestreamer
                     {
                         try
                         {
-                            pc.SendRtpRaw(media, rtpPkt.Payload, rtpPkt.Header.Timestamp, rtpPkt.Header.MarkerBit, rtpPkt.Header.PayloadType);
+                            pc.SendRtpRaw(media, rtpPkt.Payload.Span, rtpPkt.Header.Timestamp, rtpPkt.Header.MarkerBit, rtpPkt.Header.PayloadType);
                         }
                         catch (Exception ex)
                         {

@@ -10,8 +10,10 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using Microsoft.Extensions.Logging;
+using SIPSorcery.UnitTests;
 using Xunit;
 
 namespace SIPSorcery.Net.UnitTests
@@ -32,10 +34,10 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseHostCandidateUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
-            var candidate = RTCIceCandidate.Parse("1390596646 1 udp 1880747346 192.168.11.50 61680 typ host generation 0");
+            var candidate = RTCIceCandidate.Parse("1390596646 1 udp 1880747346 192.168.11.50 61680 typ host generation 0".AsSpan());
 
             Assert.NotNull(candidate);
             Assert.Equal(RTCIceCandidateType.host, candidate.type);
@@ -50,10 +52,10 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void Parse_IPv6_Host_Candidate_UnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
-            var candidate = RTCIceCandidate.Parse("1390596646 1 udp 1880747346 [::1] 61680 typ host generation 0");
+            var candidate = RTCIceCandidate.Parse("1390596646 1 udp 1880747346 [::1] 61680 typ host generation 0".AsSpan());
 
             Assert.NotNull(candidate);
             Assert.Equal(RTCIceCandidateType.host, candidate.type);
@@ -69,10 +71,10 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void Parse_IPv6_Host_NoBrackets_Candidate_UnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
-            var candidate = RTCIceCandidate.Parse("1390596646 1 udp 1880747346 ::1 61680 typ host generation 0");
+            var candidate = RTCIceCandidate.Parse("1390596646 1 udp 1880747346 ::1 61680 typ host generation 0".AsSpan());
 
             Assert.NotNull(candidate);
             Assert.Equal(RTCIceCandidateType.host, candidate.type);
@@ -88,10 +90,10 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseSvrRflxCandidateUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
-            var candidate = RTCIceCandidate.Parse("842163049 1 udp 1677729535 8.8.8.8 12767 typ srflx raddr 0.0.0.0 rport 0 generation 0 network-cost 999");
+            var candidate = RTCIceCandidate.Parse("842163049 1 udp 1677729535 8.8.8.8 12767 typ srflx raddr 0.0.0.0 rport 0 generation 0 network-cost 999".AsSpan());
 
             Assert.NotNull(candidate);
             Assert.Equal(RTCIceCandidateType.srflx, candidate.type);
@@ -106,8 +108,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void EquivalentCandidateFoundationUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             RTCIceCandidateInit initA = new RTCIceCandidateInit { usernameFragment = "abcd" };
             var candidateA = new RTCIceCandidate(initA);
@@ -130,8 +132,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void NonEquivalentCandidateFoundationUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             RTCIceCandidateInit initA = new RTCIceCandidateInit { usernameFragment = "abcd" };
             var candidateA = new RTCIceCandidate(initA);
@@ -155,10 +157,10 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ToJsonUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
-            var candidate = RTCIceCandidate.Parse("1390596646 1 udp 1880747346 192.168.11.50 61680 typ host generation 0");
+            var candidate = RTCIceCandidate.Parse("1390596646 1 udp 1880747346 192.168.11.50 61680 typ host generation 0".AsSpan());
 
             Assert.NotNull(candidate);
             Assert.Equal(RTCIceCandidateType.host, candidate.type);
@@ -173,7 +175,7 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Equal(0, init.sdpMLineIndex);
             Assert.Equal("0", init.sdpMid);
 
-            var initCandidate = RTCIceCandidate.Parse(init.candidate);
+            var initCandidate = RTCIceCandidate.Parse(init.candidate.AsSpan());
 
             Assert.Equal(RTCIceCandidateType.host, initCandidate.type);
             Assert.Equal(RTCIceProtocol.udp, initCandidate.protocol);

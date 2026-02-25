@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // Filename: RTCPeerConnectionAnswerUnitTest.cs
 //
 // Description: Unit tests for RTCPeerConnection.createAnswer().
@@ -10,6 +10,7 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
@@ -71,7 +72,7 @@ namespace SIPSorcery.Net.UnitTests
 
             // Parse the answer SDP and verify every media announcement has
             // setup:active or setup:passive, never actpass.
-            SDP answerSdp = SDP.ParseSDPDescription(answer.sdp);
+            SDP answerSdp = SDP.ParseSDPDescription(answer.sdp.AsSpan());
             Assert.NotEmpty(answerSdp.Media);
 
             foreach (var media in answerSdp.Media)

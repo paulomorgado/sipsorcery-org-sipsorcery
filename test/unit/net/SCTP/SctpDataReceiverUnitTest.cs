@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // Filename: SctpDataReceiverUnitTest.cs
 //
 // Description: Unit tests for the SctpDataReceiver class.
@@ -42,7 +42,7 @@ namespace SIPSorcery.Net.UnitTests
             var sortedFrames = receiver.OnDataChunk(chunk);
 
             Assert.Single(sortedFrames);
-            Assert.Equal("00", sortedFrames.Single().UserData.HexStr());
+            Assert.Equal("00", TypeExtensions.HexStr(sortedFrames.Single().UserData));
             Assert.Equal(0U, receiver.CumulativeAckTSN);
             Assert.Equal(0, receiver.ForwardTSNCount);
         }
@@ -69,7 +69,7 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Empty(sortFrames1);
             Assert.Empty(sortFrames2);
             Assert.Single(sortFrames3);
-            Assert.Equal("000102", sortFrames3.Single().UserData.HexStr());
+            Assert.Equal("000102", TypeExtensions.HexStr(sortFrames3.Single().UserData));
             Assert.Equal(0, receiver.ForwardTSNCount);
         }
 
@@ -96,7 +96,7 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Empty(sortFrames1);
             Assert.Empty(sortFrames2);
             Assert.Single(sortFrames3);
-            Assert.Equal("000102", sortFrames3.Single().UserData.HexStr());
+            Assert.Equal("000102", TypeExtensions.HexStr(sortFrames3.Single().UserData));
             Assert.Equal(0, receiver.ForwardTSNCount);
         }
 
@@ -123,7 +123,7 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Empty(sortFrames1);
             Assert.Empty(sortFrames2);
             Assert.Single(sortFrames3);
-            Assert.Equal("000102", sortFrames3.Single().UserData.HexStr());
+            Assert.Equal("000102", TypeExtensions.HexStr(sortFrames3.Single().UserData));
             Assert.Equal(0, receiver.ForwardTSNCount);
         }
 
@@ -157,7 +157,7 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Empty(sFrames3);
             Assert.Empty(sFrames4);
             Assert.Single(sFrames5);
-            Assert.Equal("0001020304", sFrames5.Single().UserData.HexStr());
+            Assert.Equal("0001020304", TypeExtensions.HexStr(sFrames5.Single().UserData));
             Assert.Equal(0, receiver.ForwardTSNCount);
         }
 
@@ -202,7 +202,7 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Single(sframes6);
             Assert.Single(sframes9);
             Assert.Single(sframes5);
-            Assert.Equal("0001020304", sframes5.Single().UserData.HexStr());
+            Assert.Equal("0001020304", TypeExtensions.HexStr(sframes5.Single().UserData));
             Assert.Equal(2, receiver.ForwardTSNCount);
         }
 
@@ -232,7 +232,7 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Empty(sframes3);
             Assert.Empty(sframes4);
             Assert.Single(sframes5);
-            Assert.Equal("0001020304", sframes5.Single().UserData.HexStr());
+            Assert.Equal("0001020304", TypeExtensions.HexStr(sframes5.Single().UserData));
             Assert.Equal(0, receiver.ForwardTSNCount);
         }
 
@@ -293,7 +293,7 @@ namespace SIPSorcery.Net.UnitTests
                 var sortedFrames = receiver.OnDataChunk(chunk);
 
                 Assert.Single(sortedFrames);
-                Assert.Equal("55", sortedFrames.Single().UserData.HexStr());
+                Assert.Equal("55", TypeExtensions.HexStr(sortedFrames.Single().UserData));
                 Assert.Equal(0, receiver.ForwardTSNCount);
                 Assert.Equal(tsn - 1, receiver.CumulativeAckTSN);
             }
@@ -319,7 +319,7 @@ namespace SIPSorcery.Net.UnitTests
                 var sortedFrames = receiver.OnDataChunk(chunk);
 
                 Assert.Single(sortedFrames);
-                Assert.Equal("55", sortedFrames.Single().UserData.HexStr());
+                Assert.Equal("55", TypeExtensions.HexStr(sortedFrames.Single().UserData));
                 Assert.Equal(0, receiver.ForwardTSNCount);
                 Assert.Equal(tsn - 1, receiver.CumulativeAckTSN);
             }
@@ -343,13 +343,13 @@ namespace SIPSorcery.Net.UnitTests
 
             Assert.Single(sortFrames1);
             Assert.Equal(0, sortFrames1.Single().StreamSeqNum);
-            Assert.Equal("00", sortFrames1.Single().UserData.HexStr());
+            Assert.Equal("00", TypeExtensions.HexStr(sortFrames1.Single().UserData));
             Assert.Single(sortFrames2);
             Assert.Equal(1, sortFrames2.Single().StreamSeqNum);
-            Assert.Equal("01", sortFrames2.Single().UserData.HexStr());
+            Assert.Equal("01", TypeExtensions.HexStr(sortFrames2.Single().UserData));
             Assert.Single(sortFrames3);
             Assert.Equal(2, sortFrames3.Single().StreamSeqNum);
-            Assert.Equal("02", sortFrames3.Single().UserData.HexStr());
+            Assert.Equal("02", TypeExtensions.HexStr(sortFrames3.Single().UserData));
             Assert.Equal(0, receiver.ForwardTSNCount);
         }
 
@@ -377,9 +377,9 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Empty(sortFrames2);
             Assert.Equal(3, sortFrames3.Count);
             Assert.Equal(0, sortFrames3.First().StreamSeqNum);
-            Assert.Equal("00", sortFrames3.First().UserData.HexStr());
+            Assert.Equal("00", TypeExtensions.HexStr(sortFrames3.First().UserData));
             Assert.Equal(2, sortFrames3.Last().StreamSeqNum);
-            Assert.Equal("02", sortFrames3.Last().UserData.HexStr());
+            Assert.Equal("02", TypeExtensions.HexStr(sortFrames3.Last().UserData));
             Assert.Equal(0, receiver.ForwardTSNCount);
         }
 

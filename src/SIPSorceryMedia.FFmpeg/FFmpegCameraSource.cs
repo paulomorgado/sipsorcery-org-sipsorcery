@@ -39,7 +39,7 @@ namespace SIPSorceryMedia.FFmpeg
 
             _sourcePixFmts = _camera.AvailableFormats?.Select(f => f.PixelFormat).Distinct().ToArray();
 
-            string inputFormat = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dshow"
+            var inputFormat = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dshow"
                                     : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "v4l2"
                                     : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "avfoundation"
                                     : throw new NotSupportedException($"Cannot find adequate input format" +
@@ -126,7 +126,9 @@ namespace SIPSorceryMedia.FFmpeg
                                 );
 
             if (filtered is null)
+            {
                 logger.LogWarning($"No camera/input device options to be used.");
+            }
 
             return SetCameraDeviceOptions(filtered);
         }
@@ -156,12 +158,16 @@ namespace SIPSorceryMedia.FFmpeg
             base.OnNegotiatedPixelFormat(ongoingFmt, chosenPixFmt);
 
             if (ongoingFmt == chosenPixFmt)
+            {
                 return;
+            }
 
             var formats = _filteredFormats ?? _camera.AvailableFormats;
 
             if (formats == null)
+            {
                 return;
+            }
 
             var chosenfmt = formats?.FirstOrDefault(f => f.PixelFormat == chosenPixFmt);
 
@@ -189,7 +195,9 @@ namespace SIPSorceryMedia.FFmpeg
             if (c.Equals(default(Camera.CameraFormat))
                 || c.FPS == 0 || c.Width == 0 || c.Height == 0
                 )
+            {
                 return null;
+            }
 
             return new Dictionary<string, string>()
             {

@@ -9,12 +9,14 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using SIPSorcery.Net;
+using SIPSorcery.UnitTests;
 using Xunit;
 
 namespace SIPSorcery.SIP.UnitTests
@@ -45,8 +47,8 @@ namespace SIPSorcery.SIP.UnitTests
         [Fact(Skip = "Bit trickier to pass than anticipated.")]
         public void ShortTorturousInvite()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             Assert.True(File.Exists("wsinv.dat"), "The wsinv.dat torture test input file was missing.");
 
@@ -76,8 +78,8 @@ namespace SIPSorcery.SIP.UnitTests
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_1()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "REGISTER sip:[2001:db8::10] SIP/2.0" + CRLF +
@@ -120,8 +122,8 @@ namespace SIPSorcery.SIP.UnitTests
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_2()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "REGISTER sip:2001:db8::10 SIP/2.0" + CRLF +
@@ -158,8 +160,8 @@ namespace SIPSorcery.SIP.UnitTests
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_3()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "REGISTER sip:[2001:db8::10:5070] SIP/2.0" + CRLF +
@@ -204,8 +206,8 @@ namespace SIPSorcery.SIP.UnitTests
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_4()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "REGISTER sip:[2001:db8::10]:5070 SIP/2.0" + CRLF +
@@ -250,8 +252,8 @@ namespace SIPSorcery.SIP.UnitTests
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_5_1()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "BYE sip:[2001:db8::10] SIP/2.0" + CRLF +
@@ -289,8 +291,8 @@ namespace SIPSorcery.SIP.UnitTests
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_5_2()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "OPTIONS sip:[2001:db8::10] SIP/2.0" + CRLF +
@@ -332,8 +334,8 @@ namespace SIPSorcery.SIP.UnitTests
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_6()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "INVITE sip:user@[2001:db8::10] SIP/2.0" + CRLF +
@@ -372,7 +374,7 @@ CRLF +
             Assert.True(IPAddress.TryParse(sipRequest.URI.HostAddress, out ip6));
             Assert.Equal(AddressFamily.InterNetworkV6, ip6.AddressFamily);
             Assert.False(string.IsNullOrWhiteSpace(sipRequest.Body));
-            SDP sdp = SDP.ParseSDPDescription(sipRequest.Body);
+            SDP sdp = SDP.ParseSDPDescription(sipRequest.Body.AsSpan());
             Assert.NotNull(sdp);
             Assert.NotNull(sdp.Connection);
             Assert.True(IPAddress.TryParse(sdp.Connection.ConnectionAddress, out ip6));
@@ -392,8 +394,8 @@ CRLF +
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_7()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "BYE sip:user@host.example.net SIP/2.0" + CRLF +
@@ -443,8 +445,8 @@ CRLF +
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_8()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "INVITE sip:user@[2001:db8::10] SIP/2.0" + CRLF +
@@ -483,7 +485,7 @@ CRLF +
             Assert.True(IPAddress.TryParse(sipRequest.URI.HostAddress, out ip6));
             Assert.Equal(AddressFamily.InterNetworkV6, ip6.AddressFamily);
             Assert.False(string.IsNullOrWhiteSpace(sipRequest.Body));
-            SDP sdp = SDP.ParseSDPDescription(sipRequest.Body);
+            SDP sdp = SDP.ParseSDPDescription(sipRequest.Body.AsSpan());
             Assert.NotNull(sdp);
             //Assert.NotNull(sdp.Connection);
             //Assert.True(IPAddress.TryParse(sdp.Connection.ConnectionAddress, out ip4));
@@ -511,8 +513,8 @@ CRLF +
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_9()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "INVITE sip:user@example.com SIP/2.0" + CRLF +
@@ -554,7 +556,7 @@ CRLF +
             Assert.Equal(AddressFamily.InterNetworkV6, ip6.AddressFamily);
             Assert.False(IPAddress.TryParse(sipRequest.URI.HostAddress, out ip6));
             Assert.False(string.IsNullOrWhiteSpace(sipRequest.Body));
-            SDP sdp = SDP.ParseSDPDescription(sipRequest.Body);
+            SDP sdp = SDP.ParseSDPDescription(sipRequest.Body.AsSpan());
             Assert.NotNull(sdp);
             Assert.NotNull(sdp.Connection);
             Assert.True(IPAddress.TryParse(sdp.Connection.ConnectionAddress, out ip6));
@@ -578,8 +580,8 @@ CRLF +
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_10_1()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "OPTIONS sip:user@[2001:db8:::192.0.2.1] SIP/2.0" + CRLF +
@@ -615,8 +617,8 @@ CRLF +
         [Trait("Category", "IPv6Torture")]
         public void RFC5118_4_10_2()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sipMsg =
 "OPTIONS sip:user@[2001:db8::192.0.2.1] SIP/2.0" + CRLF +

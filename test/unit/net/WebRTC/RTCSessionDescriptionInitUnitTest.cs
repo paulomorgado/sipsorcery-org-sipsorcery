@@ -10,6 +10,7 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -51,7 +52,7 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Equal(RTCSdpType.offer, init.type);
             Assert.NotNull(init.sdp);
 
-            SDP sdp = SDP.ParseSDPDescription(init.sdp);
+            SDP sdp = SDP.ParseSDPDescription(init.sdp.AsSpan());
             Assert.Equal(0, sdp.Version);
         }
 

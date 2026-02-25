@@ -15,6 +15,7 @@
 
 using Microsoft.Extensions.Logging;
 using SIPSorcery.Sys;
+using SIPSorcery.UnitTests;
 using Xunit;
 
 namespace SIPSorcery.Net.UnitTests
@@ -36,14 +37,15 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void RoundtripPictureLossIndicationReportUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             uint senderSsrc = 33;
             uint mediaSsrc = 44;
 
             RTCPFeedback rtcpPli = new RTCPFeedback(senderSsrc, mediaSsrc, PSFBFeedbackTypesEnum.PLI);
-            byte[] buffer = rtcpPli.GetBytes();
+            var buffer = new byte[rtcpPli.GetByteCount()];
+            rtcpPli.WriteBytes(buffer);
 
             logger.LogDebug("Serialised PLI feedback report: {Buffer}", BufferUtils.HexStr(buffer));
 
@@ -63,8 +65,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void RoundtripREMBUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             uint senderSsrc = 33;
             uint mediaSsrc = 44;
@@ -78,7 +80,8 @@ namespace SIPSorcery.Net.UnitTests
                 BitrateMantissa = 222242u,
                 FeedbackSSRC = 0x4a8eec30
             };
-            byte[] buffer = rtcpREMB.GetBytes();
+            var buffer = new byte[rtcpREMB.GetByteCount()];
+            rtcpREMB.WriteBytes(buffer);
 
             logger.LogDebug("Serialised REMB: {Buffer}", BufferUtils.HexStr(buffer));
 
@@ -102,8 +105,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void RoundtripREMBUnitTestMultipleSsrcs()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             uint senderSsrc = 33;
             uint mediaSsrc = 44;
@@ -117,12 +120,14 @@ namespace SIPSorcery.Net.UnitTests
                 BitrateMantissa = 222242u,
                 FeedbackSSRCs = new uint[]{0x4a8eec30,0x4a8eec44,0x4a8eec58}
             };
-            byte[] buffer = rtcpREMB.GetBytes();
+            var buffer = new byte[rtcpREMB.GetByteCount()];
+            rtcpREMB.WriteBytes(buffer);
 
             logger.LogDebug("Serialised REMB: {Buffer}", BufferUtils.HexStr(buffer));
 
             RTCPFeedback parsedREMB = new RTCPFeedback(buffer);
-            var parsedBuffer = parsedREMB.GetBytes();
+            var parsedBuffer = new byte[parsedREMB.GetByteCount()];
+            parsedREMB.WriteBytes(parsedBuffer);
             Assert.Equal(parsedBuffer, buffer);
             Assert.Equal(RTCPReportTypesEnum.PSFB, parsedREMB.Header.PacketType);
             Assert.Equal(PSFBFeedbackTypesEnum.AFB, parsedREMB.Header.PayloadFeedbackMessageType);

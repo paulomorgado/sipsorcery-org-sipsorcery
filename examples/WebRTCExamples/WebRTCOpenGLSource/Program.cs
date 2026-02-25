@@ -44,6 +44,7 @@ using WebSocketSharp.Server;
 using AudioScope;
 using System.Numerics;
 using SIPSorceryMedia.Abstractions;
+using CommunityToolkit.HighPerformance.Buffers;
 
 namespace demo;
 
@@ -157,23 +158,27 @@ class Program
             }
         };
 
-        audioSource.OnAudioSourceEncodedSample += (uint durationRtpUnits, byte[] sample) =>
+        audioSource.OnAudioSourceEncodedSample += (durationRtpUnits, sample) =>
         {
             //logger.LogDebug($"RTP {media} pkt received, SSRC {rtpPkt.Header.SyncSource}, payload {rtpPkt.Header.PayloadType}, SeqNum {rtpPkt.Header.SequenceNumber}.");
 
-                var decodedSample = audioEncoder.DecodeAudio(sample, pc.AudioStream.NegotiatedFormat.ToAudioFormat());
+            using var buffer = new ArrayPoolBufferWriter<short>(8192);
+            audioEncoder.DecodeAudio(sample.Span, pc.AudioStream.NegotiatedFormat.ToAudioFormat(), buffer);
+            var decodedSample = buffer.WrittenSpan;
 
-                var samples = decodedSample
-                    .Select(s => new Complex(s / 32768f, 0f))
-                    .ToArray();
+            var samples = new Complex[decodedSample.Length];
+            for (int i = 0; i < samples.Length; i++)
+            {
+                samples[i] = new Complex(decodedSample[i] / 32768f, 0f);
+            }
 
-                var frame = _audioScopeForm.Invoke(() => _audioScopeForm.ProcessAudioSample(samples));
+            var frame = _audioScopeForm.Invoke(() => _audioScopeForm.ProcessAudioSample(samples));
 
-                videoEncoderEndPoint.ExternalVideoSourceRawSample(AUDIO_PACKET_DURATION,
-                    FormAudioScope.AUDIO_SCOPE_WIDTH,
-                    FormAudioScope.AUDIO_SCOPE_HEIGHT,
-                    frame,
-                    VideoPixelFormatsEnum.Rgb);
+            videoEncoderEndPoint.ExternalVideoSourceRawSample(AUDIO_PACKET_DURATION,
+                FormAudioScope.AUDIO_SCOPE_WIDTH,
+                FormAudioScope.AUDIO_SCOPE_HEIGHT,
+                frame,
+                VideoPixelFormatsEnum.Rgb);
         };
 
         pc.onconnectionstatechange += async (state) =>

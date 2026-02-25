@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // Filename: TurnServerUnitTest.cs
 //
 // Description: Unit tests for TurnServer (RFC 5766).
@@ -21,6 +21,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using SIPSorcery.Sys;
+using SIPSorcery.UnitTests;
 using Xunit;
 
 namespace SIPSorcery.Net.UnitTests
@@ -95,7 +96,8 @@ namespace SIPSorcery.Net.UnitTests
         private static async Task SendStunMessage(NetworkStream stream, STUNMessage msg,
             byte[] hmacKey = null, bool addFingerprint = false)
         {
-            var bytes = msg.ToByteBuffer(hmacKey, addFingerprint);
+            var bytes = new byte[msg.GetByteBufferSize(hmacKey, addFingerprint)];
+            msg.WriteToBuffer(bytes, hmacKey, addFingerprint);
             await stream.WriteAsync(bytes, 0, bytes.Length);
             await stream.FlushAsync();
         }
@@ -128,7 +130,7 @@ namespace SIPSorcery.Net.UnitTests
                 totalRead += read;
             }
 
-            return STUNMessage.ParseSTUNMessage(fullMsg, fullMsg.Length);
+            return STUNMessage.ParseSTUNMessage(fullMsg);
         }
 
         private static STUNMessage BuildAllocateRequest()
@@ -146,7 +148,7 @@ namespace SIPSorcery.Net.UnitTests
             msg.Attributes.Add(new STUNAttribute(
                 STUNAttributeTypesEnum.RequestedTransport,
                 STUNAttributeConstants.UdpTransportType));
-            msg.AddUsernameAttribute(username);
+            msg.AddUsernameAttribute(username.AsSpan());
             msg.Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Realm,
                 Encoding.UTF8.GetBytes(realm)));
             msg.Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Nonce,
@@ -160,7 +162,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task AllocateReturns401WithoutCredentials()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -179,14 +181,14 @@ namespace SIPSorcery.Net.UnitTests
                 a => a.AttributeType == STUNAttributeTypesEnum.ErrorCode);
             Assert.NotNull(errorAttr);
             Assert.True(errorAttr.Value.Length >= 4);
-            int errorCode = errorAttr.Value[2] * 100 + errorAttr.Value[3];
+            int errorCode = errorAttr.Value.Span[2] * 100 + errorAttr.Value.Span[3];
             Assert.Equal(401, errorCode);
 
             // Should contain REALM
             var realmAttr = response.Attributes.FirstOrDefault(
                 a => a.AttributeType == STUNAttributeTypesEnum.Realm);
             Assert.NotNull(realmAttr);
-            Assert.Equal(TEST_REALM, Encoding.UTF8.GetString(realmAttr.Value));
+            Assert.Equal(TEST_REALM, Encoding.UTF8.GetString(realmAttr.Value.ToArray()));
 
             // Should contain NONCE
             var nonceAttr = response.Attributes.FirstOrDefault(
@@ -200,7 +202,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task AuthenticatedAllocateSucceeds()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -214,7 +216,7 @@ namespace SIPSorcery.Net.UnitTests
             Assert.Equal(STUNMessageTypesEnum.AllocateErrorResponse, response1.Header.MessageType);
 
             var nonceAttr = response1.Attributes.First(a => a.AttributeType == STUNAttributeTypesEnum.Nonce);
-            var nonce = Encoding.UTF8.GetString(nonceAttr.Value);
+            var nonce = Encoding.UTF8.GetString(nonceAttr.Value.ToArray());
 
             // Step 2: Send authenticated allocate
             var request2 = BuildAuthenticatedAllocateRequest(hmacKey, TEST_USERNAME, TEST_REALM, nonce);
@@ -245,7 +247,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task WrongPasswordFails()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -259,7 +261,7 @@ namespace SIPSorcery.Net.UnitTests
             await SendStunMessage(stream, request1);
             var response1 = await ReceiveStunMessage(stream);
             var nonce = Encoding.UTF8.GetString(
-                response1.Attributes.First(a => a.AttributeType == STUNAttributeTypesEnum.Nonce).Value);
+                response1.Attributes.First(a => a.AttributeType == STUNAttributeTypesEnum.Nonce).Value.ToArray());
 
             // Send with wrong credentials
             var request2 = BuildAuthenticatedAllocateRequest(wrongKey, TEST_USERNAME, TEST_REALM, nonce);
@@ -277,7 +279,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task RefreshExtendsLifetime()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -312,7 +314,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task RefreshZeroDeletesAllocation()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -340,7 +342,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task CreatePermissionSucceeds()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -368,7 +370,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task ChannelBindSucceeds()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -405,7 +407,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task SendIndicationRelaysData()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -449,7 +451,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task ChannelDataRelaysViaBinding()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -500,7 +502,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task UdpRelayBackToClient()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -573,7 +575,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task BindingRequestReturnsAddress()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var (server, port) = CreateTurnServer();
             using var client = await ConnectTcpClient(port);
@@ -598,7 +600,7 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public async Task ExpiredAllocationCleanedUp()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             // Create server with very short lifetime
             int testPort;
@@ -659,7 +661,7 @@ namespace SIPSorcery.Net.UnitTests
 
             var nonceAttr = response1.Attributes.First(
                 a => a.AttributeType == STUNAttributeTypesEnum.Nonce);
-            var nonce = Encoding.UTF8.GetString(nonceAttr.Value);
+            var nonce = Encoding.UTF8.GetString(nonceAttr.Value.ToArray());
 
             // Step 2: Authenticated request
             var request2 = BuildAuthenticatedAllocateRequest(hmacKey, TEST_USERNAME, TEST_REALM, nonce);

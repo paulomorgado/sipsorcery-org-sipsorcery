@@ -15,6 +15,8 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+#nullable disable
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -373,7 +375,7 @@ namespace SIPSorcery.Net
                         if (remaining > 0 && !await ReadExactAsync(stream, fullMsg, 4, remaining).ConfigureAwait(false))
                             break;
 
-                        var stunMsg = STUNMessage.ParseSTUNMessage(fullMsg, fullMsg.Length);
+                        var stunMsg = STUNMessage.ParseSTUNMessage(fullMsg.AsSpan());
                         if (stunMsg == null)
                         {
                             logger.LogWarning("Failed to parse STUN message from TCP client {Client}.", clientId);
@@ -475,7 +477,7 @@ namespace SIPSorcery.Net
                 return;
             }
 
-            var stunMsg = STUNMessage.ParseSTUNMessage(data, data.Length);
+            var stunMsg = STUNMessage.ParseSTUNMessage(data);
             if (stunMsg == null)
             {
                 logger.LogWarning("Failed to parse STUN message from UDP client {Client}.", clientId);
@@ -531,7 +533,8 @@ namespace SIPSorcery.Net
                 case STUNMessageTypesEnum.BindingRequest:
                     {
                         var response = HandleBindingRequest(msg);
-                        var bytes = response.ToByteBuffer(null, false);
+                        var bytes = new byte[response.GetByteBufferSize(null, false)];
+                        response.WriteToBuffer(bytes, null, false);
                         _ = sendResponse(bytes);
                     }
                     break;
@@ -541,9 +544,18 @@ namespace SIPSorcery.Net
                         var (response, needsAuth) = HandleAllocate(msg, rawBytes, clientId,
                             tcpStream, udpClientEndPoint, udpControlSocket,
                             ref allocation);
-                        var bytes = needsAuth
-                            ? response.ToByteBuffer(_hmacKey, true)
-                            : response.ToByteBuffer(null, false);
+                        byte[] bytes;
+                        if (needsAuth)
+                        {
+                            bytes = new byte[response.GetByteBufferSize(_hmacKey, true)];
+                            response.WriteToBuffer(bytes, _hmacKey, true);
+                        }
+                        else
+                        {
+                            bytes = new byte[response.GetByteBufferSize(null, false)];
+                            response.WriteToBuffer(bytes, null, false);
+                        }
+
                         _ = sendResponse(bytes);
                     }
                     break;
@@ -551,7 +563,8 @@ namespace SIPSorcery.Net
                 case STUNMessageTypesEnum.Refresh:
                     {
                         var response = HandleRefresh(msg, clientId, ref allocation);
-                        var bytes = response.ToByteBuffer(_hmacKey, true);
+                        var bytes = new byte[response.GetByteBufferSize(_hmacKey, true)];
+                        response.WriteToBuffer(bytes, _hmacKey, true);
                         _ = sendResponse(bytes);
                     }
                     break;
@@ -559,7 +572,8 @@ namespace SIPSorcery.Net
                 case STUNMessageTypesEnum.CreatePermission:
                     {
                         var response = HandleCreatePermission(msg, allocation);
-                        var bytes = response.ToByteBuffer(_hmacKey, true);
+                        var bytes = new byte[response.GetByteBufferSize(_hmacKey, true)];
+                        response.WriteToBuffer(bytes, _hmacKey, true);
                         _ = sendResponse(bytes);
                     }
                     break;
@@ -567,7 +581,8 @@ namespace SIPSorcery.Net
                 case STUNMessageTypesEnum.ChannelBind:
                     {
                         var response = HandleChannelBind(msg, allocation);
-                        var bytes = response.ToByteBuffer(_hmacKey, true);
+                        var bytes = new byte[response.GetByteBufferSize(_hmacKey, true)];
+                        response.WriteToBuffer(bytes, _hmacKey, true);
                         _ = sendResponse(bytes);
                     }
                     break;
@@ -702,8 +717,8 @@ namespace SIPSorcery.Net
             uint lifetime = (uint)_config.DefaultLifetimeSeconds;
             if (lifetimeAttr?.Value != null && lifetimeAttr.Value.Length >= 4)
             {
-                lifetime = (uint)((lifetimeAttr.Value[0] << 24) | (lifetimeAttr.Value[1] << 16) |
-                                  (lifetimeAttr.Value[2] << 8) | lifetimeAttr.Value[3]);
+                lifetime = (uint)((lifetimeAttr.Value.Span[0] << 24) | (lifetimeAttr.Value.Span[1] << 16) |
+                                  (lifetimeAttr.Value.Span[2] << 8) | lifetimeAttr.Value.Span[3]);
             }
 
             if (lifetime == 0)
@@ -771,7 +786,7 @@ namespace SIPSorcery.Net
                 return errResponse;
             }
 
-            var channelNumber = (ushort)((channelAttr.Value[0] << 8) | channelAttr.Value[1]);
+            var channelNumber = (ushort)((channelAttr.Value.Span[0] << 8) | channelAttr.Value.Span[1]);
 
             var peerAttr = request.Attributes.FirstOrDefault(
                 a => a.AttributeType == STUNAttributeTypesEnum.XORPeerAddress);
@@ -823,7 +838,7 @@ namespace SIPSorcery.Net
 
             try
             {
-                allocation.RelaySocket.Send(dataAttr.Value, dataAttr.Value.Length, peerEndpoint);
+                allocation.RelaySocket.Send(dataAttr.Value.Span, peerEndpoint);
             }
             catch (Exception ex)
             {
@@ -890,7 +905,8 @@ namespace SIPSorcery.Net
                             result.RemoteEndPoint.Address, result.RemoteEndPoint.Port);
                         indication.Attributes.Add(new STUNAttribute(
                             STUNAttributeTypesEnum.Data, result.Buffer));
-                        var bytes = indication.ToByteBuffer(null, false);
+                        var bytes = new byte[indication.GetByteBufferSize(null, false)];
+                        indication.WriteToBuffer(bytes, null, false);
                         await SendToClientAsync(allocation, bytes).ConfigureAwait(false);
                     }
                 }

@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.HighPerformance.Buffers;
 using FFmpeg.AutoGen;
 using Microsoft.Extensions.Logging;
 using SIPSorceryMedia.Abstractions;
@@ -86,7 +88,10 @@ namespace SIPSorceryMedia.FFmpeg
         public List<AudioFormat> GetAudioSourceFormats()
         {
             if (_audioFormatManager != null)
+            {
                 return _audioFormatManager.GetSourceFormats();
+            }
+
             return new List<AudioFormat>();
         }
 
@@ -100,7 +105,9 @@ namespace SIPSorceryMedia.FFmpeg
         public void RestrictFormats(Func<AudioFormat, bool> filter)
         {
             if (_audioFormatManager != null)
+            {
                 _audioFormatManager.RestrictFormats(filter);
+            }
         }
 
         public void ExternalAudioSourceRawSample(AudioSamplingRatesEnum samplingRate, uint durationMilliseconds, short[] sample) => throw new NotImplementedException();
@@ -119,8 +126,10 @@ namespace SIPSorceryMedia.FFmpeg
 
         private unsafe void AudioDecoder_OnAudioFrame(ref AVFrame avFrame)
         {
-            if ( (OnAudioSourceEncodedSample == null) || (_audioDecoder == null) )
+            if ((OnAudioSourceEncodedSample == null) || (_audioDecoder == null))
+            {
                 return;
+            }
 
             // Avoid to create several times buffer of the same size
             if (_currentNbSamples < avFrame.nb_samples)
@@ -143,27 +152,61 @@ namespace SIPSorceryMedia.FFmpeg
             // Convert audio
             int dstSampleCount;
             fixed (byte* pBuffer = buffer)
+            {
                 dstSampleCount = ffmpeg.swr_convert(_audioDecoder._swrContext, &pBuffer, bufferSizeInSamples, avFrame.extended_data, avFrame.nb_samples);
+            }
 
-            if(dstSampleCount < 0)
+            if (dstSampleCount < 0)
             {
                 OnAudioSourceError?.Invoke("Cannot convert audio");
                 Dispose();
                 return;
             }
 
-            if(dstSampleCount > 0)
+            if (dstSampleCount > 0)
             {
                 // FFmpeg AV_SAMPLE_FMT_S16 will store the bytes in the correct endianess for the underlying platform.
-                short[] pcm = buffer.Take(dstSampleCount * 2).Where((x, i) => i % 2 == 0).Select((y, i) => BitConverter.ToInt16(buffer, i * 2)).ToArray();
+                var pcm = buffer.Take(dstSampleCount * 2).Where((x, i) => i % 2 == 0).Select((y, i) => BitConverter.ToInt16(buffer, i * 2)).ToArray();
                 _incomingSamples.Write(pcm);
 
-                while (_incomingSamples.Available() >= frameSize)
+                if (_incomingSamples.Available() >= frameSize)
                 {
-                    var pcmFrame = _incomingSamples.Read(frameSize);
-                    var encodedSample = _audioEncoder.EncodeAudio(pcmFrame, _audioFormatManager.SelectedFormat);
-                    if(encodedSample.Length > 0)
-                        OnAudioSourceEncodedSample?.Invoke((uint) (pcmFrame.Length * _audioFormatManager.SelectedFormat.RtpClockRate / _audioFormatManager.SelectedFormat.ClockRate ), encodedSample);
+                    var pcmFrame = ArrayPool<short>.Shared.Rent(frameSize);
+                    try
+                    {
+                        while (_incomingSamples.Available() >= frameSize)
+                        {
+                            _incomingSamples.Read(frameSize, pcmFrame);
+                            using var encodedBuffer = new ArrayPoolBufferWriter<byte>();
+                            _audioEncoder.EncodeAudio(pcmFrame.AsSpan(0, frameSize), _audioFormatManager.SelectedFormat, encodedBuffer);
+
+                            var encodedMemory = encodedBuffer.WrittenMemory;
+
+                            var onAudioSourceEncodedSample = OnAudioSourceEncodedSample;
+                            var onAudioSourceEncodedFrameReady = OnAudioSourceEncodedFrameReady;
+
+                            if (!encodedMemory.IsEmpty && (onAudioSourceEncodedSample is { } || onAudioSourceEncodedFrameReady is { }))
+                            {
+                                onAudioSourceEncodedSample?.Invoke((uint)encodedMemory.Length, encodedMemory);
+
+                                if (onAudioSourceEncodedFrameReady is { })
+                                {
+                                    var audioFormat = _audioFormatManager.SelectedFormat;
+                                    var numChannels = audioFormat.ChannelCount;
+                                    var sampleRate = audioFormat.ClockRate;
+                                    var frames = pcm.Length / numChannels;
+                                    var durationMsD = sampleRate > 0 ? (frames / (double)sampleRate) * 1000.0 : 0;
+                                    var durationMs = (uint)Math.Round(durationMsD);
+                                    var encodedFrame = new EncodedAudioFrame(0, audioFormat, durationMs, encodedMemory);
+                                    onAudioSourceEncodedFrameReady(encodedFrame);
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        ArrayPool<short>.Shared.Return(pcmFrame);
+                    }
                 }
             }
         }
@@ -188,8 +231,10 @@ namespace SIPSorceryMedia.FFmpeg
             {
                 _isClosed = true;
 
-                if(_audioDecoder != null)
+                if (_audioDecoder != null)
+                {
                     await _audioDecoder.Close();
+                }
 
                 Dispose();
             }
@@ -202,7 +247,9 @@ namespace SIPSorceryMedia.FFmpeg
                 _isPaused = true;
 
                 if (_audioDecoder != null)
+                {
                     _audioDecoder.Pause();
+                }
             }
 
             return Task.CompletedTask;
@@ -214,7 +261,9 @@ namespace SIPSorceryMedia.FFmpeg
             {
                 _isPaused = false;
                 if (_audioDecoder != null)
+                {
                     _audioDecoder.Resume();
+                }
             }
             return Task.CompletedTask;
         }

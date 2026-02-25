@@ -126,7 +126,9 @@ namespace SIPSorceryMedia.FFmpeg
             if (_videoEncoder != null)
             {
                 if (FFmpegConvert.GetAVCodecID(codec) is var cdc && cdc is not null)
+                {
                     return _videoEncoder.SetCodec((AVCodecID)cdc, name, opts);
+                }
                 else
                 {
                     logger.LogError("Codec {codec} is not supported by this endpoint.", codec);
@@ -154,8 +156,8 @@ namespace SIPSorceryMedia.FFmpeg
         {
             if ((_videoDecoder != null) && (_videoEncoder != null) &&  ((OnVideoSourceEncodedSample != null) || (OnVideoSourceRawSampleFaster != null)))
             {
-                int frameRate = (int)_videoDecoder.VideoAverageFrameRate;
-                uint timestampDuration = (uint)_videoDecoder.VideoFrameSpace;
+                var frameRate = (int)_videoDecoder.VideoAverageFrameRate;
+                var timestampDuration = (uint)_videoDecoder.VideoFrameSpace;
 
                 var width = frame->width;
                 var height = frame->height;
@@ -171,7 +173,9 @@ namespace SIPSorceryMedia.FFmpeg
                 }
 
                 if (!NegotiatePixelFormat(aVCodecId, width, height, frameRate, srcfmt))
+                {
                     return;
+                }
 
                 // Manage Raw Sample
                 if (OnVideoSourceRawSampleFaster != null)
@@ -231,10 +235,12 @@ namespace SIPSorceryMedia.FFmpeg
 
                     // let the encoder decide on I-frames
                     if (readyFrame->pict_type == AVPictureType.AV_PICTURE_TYPE_I)
+                    {
                         readyFrame->pict_type = AVPictureType.AV_PICTURE_TYPE_NONE;
+                    }
 
                     // Now a frame in the correct pixel format is availble so it can be encoded.
-                    byte[]? encodedSample = _videoEncoder.Encode(aVCodecId.Value, readyFrame, frameRate, _forceKeyFrame);
+                    var encodedSample = _videoEncoder.Encode(aVCodecId.Value, readyFrame, frameRate, _forceKeyFrame);
 
                     if (encodedSample != null)
                     {
@@ -253,7 +259,9 @@ namespace SIPSorceryMedia.FFmpeg
         internal virtual bool NegotiatePixelFormat(AVCodecID? codecid, int width, int height, int frameRate, AVPixelFormat srcfmt)
         {
             if (_negotiatedPixFmt != null && _negotiatedPixFmt != AVPixelFormat.AV_PIX_FMT_NONE)
+            {
                 return true;
+            }
 
             if (_videoEncoder != null && codecid != null)
             {
@@ -296,7 +304,10 @@ namespace SIPSorceryMedia.FFmpeg
             {
                 _isClosed = true;
                 if (_videoDecoder != null)
+                {
                     await _videoDecoder.Close();
+                }
+
                 Dispose();
             }
         }
@@ -307,7 +318,9 @@ namespace SIPSorceryMedia.FFmpeg
             {
                 _isPaused = true;
                 if (_videoDecoder != null)
+                {
                     _videoDecoder?.Pause();
+                }
             }
 
             return Task.CompletedTask;
@@ -319,7 +332,9 @@ namespace SIPSorceryMedia.FFmpeg
             {
                 _isPaused = false;
                 if (_videoDecoder != null)
+                {
                     _videoDecoder.Resume();
+                }
             }
             return Task.CompletedTask;
         }

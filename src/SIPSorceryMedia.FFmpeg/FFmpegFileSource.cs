@@ -39,7 +39,9 @@ namespace SIPSorceryMedia.FFmpeg
             if (!File.Exists(path))
             {
                 if (!Uri.TryCreate(path, UriKind.Absolute, out Uri? result))
+                {
                     throw new ApplicationException($"Requested path is not a valid file path or not a valid Uri: {path}.");
+                }
             }
 
             if ((audioEncoder != null))
@@ -73,7 +75,7 @@ namespace SIPSorceryMedia.FFmpeg
             OnVideoSourceError?.Invoke(errorMessage);
         }
 
-        private void _FFmpegVideoSource_OnVideoSourceEncodedSample(uint durationRtpUnits, byte[] sample)
+        private void _FFmpegVideoSource_OnVideoSourceEncodedSample(uint durationRtpUnits, ReadOnlyMemory<byte> sample)
         {
             OnVideoSourceEncodedSample?.Invoke(durationRtpUnits, sample);
         }
@@ -83,7 +85,7 @@ namespace SIPSorceryMedia.FFmpeg
             OnVideoSourceRawSampleFaster?.Invoke(durationMilliseconds, imageRawSample);
         }
 
-        private void _FFmpegAudioSource_OnAudioSourceEncodedSample(uint durationRtpUnits, byte[] sample)
+        private void _FFmpegAudioSource_OnAudioSourceEncodedSample(uint durationRtpUnits, ReadOnlyMemory<byte> sample)
         {
             OnAudioSourceEncodedSample?.Invoke(durationRtpUnits, sample);
         }
@@ -98,7 +100,10 @@ namespace SIPSorceryMedia.FFmpeg
         public List<AudioFormat> GetAudioSourceFormats()
         {
             if (_FFmpegAudioSource != null)
+            {
                 return _FFmpegAudioSource.GetAudioSourceFormats();
+            }
+
             return new List<AudioFormat>();
         }
         public void SetAudioSourceFormat(AudioFormat audioFormat)
@@ -112,19 +117,25 @@ namespace SIPSorceryMedia.FFmpeg
         public void RestrictFormats(Func<AudioFormat, bool> filter)
         {
             if (_FFmpegAudioSource != null)
+            {
                 _FFmpegAudioSource.RestrictFormats(filter);
+            }
         }
         public void ExternalAudioSourceRawSample(AudioSamplingRatesEnum samplingRate, uint durationMilliseconds, short[] sample) => throw new NotImplementedException();
         
         public bool HasEncodedAudioSubscribers()
         {
-            Boolean result = OnAudioSourceEncodedSample != null;
+            var result = OnAudioSourceEncodedSample != null;
             if (_FFmpegAudioSource != null)
             {
                 if (result)
+                {
                     _FFmpegAudioSource.OnAudioSourceEncodedSample += _FFmpegAudioSource_OnAudioSourceEncodedSample;
+                }
                 else
+                {
                     _FFmpegAudioSource.OnAudioSourceEncodedSample -= _FFmpegAudioSource_OnAudioSourceEncodedSample;
+                }
             }
 
             return result;
@@ -132,13 +143,17 @@ namespace SIPSorceryMedia.FFmpeg
 
         public bool HasRawAudioSubscribers()
         {
-            Boolean result = OnAudioSourceRawSample!= null;
+            var result = OnAudioSourceRawSample!= null;
             if (_FFmpegAudioSource != null)
             {
                 if (result)
+                {
                     _FFmpegAudioSource.OnAudioSourceRawSample += _FFmpegAudioSource_OnAudioSourceRawSample;
+                }
                 else
+                {
                     _FFmpegAudioSource.OnAudioSourceRawSample -= _FFmpegAudioSource_OnAudioSourceRawSample;
+                }
             }
 
             return result;
@@ -153,7 +168,10 @@ namespace SIPSorceryMedia.FFmpeg
         public List<VideoFormat> GetVideoSourceFormats()
         {
             if (_FFmpegVideoSource != null)
+            {
                 return _FFmpegVideoSource.GetVideoSourceFormats();
+            }
+
             return new List<VideoFormat>();
         }
 
@@ -169,7 +187,9 @@ namespace SIPSorceryMedia.FFmpeg
         public void RestrictFormats(Func<VideoFormat, bool> filter)
         {
             if (_FFmpegVideoSource != null)
+            {
                 _FFmpegVideoSource.RestrictFormats(filter);
+            }
         }
 
         public void ForceKeyFrame() => _FFmpegVideoSource?.ForceKeyFrame();
@@ -179,13 +199,17 @@ namespace SIPSorceryMedia.FFmpeg
 
         public bool HasEncodedVideoSubscribers()
         {
-            Boolean result =  OnVideoSourceEncodedSample != null;
+            var result =  OnVideoSourceEncodedSample != null;
             if (_FFmpegVideoSource != null)
             {
                 if (result)
+                {
                     _FFmpegVideoSource.OnVideoSourceEncodedSample += _FFmpegVideoSource_OnVideoSourceEncodedSample;
+                }
                 else
+                {
                     _FFmpegVideoSource.OnVideoSourceEncodedSample -= _FFmpegVideoSource_OnVideoSourceEncodedSample;
+                }
             }
 
             return result;
@@ -193,13 +217,17 @@ namespace SIPSorceryMedia.FFmpeg
 
         public bool HasRawVideoSubscribers()
         {
-            Boolean result = OnVideoSourceRawSampleFaster != null;
+            var result = OnVideoSourceRawSampleFaster != null;
             if (_FFmpegVideoSource != null)
             {
                 if (result)
+                {
                     _FFmpegVideoSource.OnVideoSourceRawSampleFaster += _FFmpegVideoSource_OnVideoSourceRawSampleFaster;
+                }
                 else
+                {
                     _FFmpegVideoSource.OnVideoSourceRawSampleFaster -= _FFmpegVideoSource_OnVideoSourceRawSampleFaster;
+                }
             }
 
             return result;

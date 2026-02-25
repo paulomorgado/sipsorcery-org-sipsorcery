@@ -1,7 +1,7 @@
-![](https://github.com/sipsorcery-org/sipsorcery/actions/workflows/sipsorcery-core-win.yml/badge.svg) 
-![](https://github.com/sipsorcery-org/sipsorcery/actions/workflows/sipsorcery-core-ubuntu.yml/badge.svg) 
-![](https://github.com/sipsorcery-org/sipsorcery/actions/workflows/sipsorcery-core-mac.yml/badge.svg) 
-![](https://github.com/sipsorcery-org/sipsorcery/actions/workflows/examples-core-win.yml/badge.svg)
+[](https://github.com/sipsorcery-org/sipsorcery/actions/workflows/sipsorcery-core-win.yml/badge.svg) 
+[](https://github.com/sipsorcery-org/sipsorcery/actions/workflows/sipsorcery-core-ubuntu.yml/badge.svg) 
+[](https://github.com/sipsorcery-org/sipsorcery/actions/workflows/sipsorcery-core-mac.yml/badge.svg) 
+[](https://github.com/sipsorcery-org/sipsorcery/actions/workflows/examples-core-win.yml/badge.svg)
 
 ## License update
 
@@ -10,7 +10,7 @@
 
 ## License
 
-![License](https://img.shields.io/badge/license-BSD%203--Clause%20%2B%20BDS-red) ![Use prohibited in Israel](img/israel-ban.svg)
+[License](https://img.shields.io/badge/license-BSD%203--Clause%20%2B%20BDS-red) [Use prohibited in Israel](img/israel-ban.svg)
 
 **BSD 3-Clause License with an explicit prohibition on use by entities contributing to Israeli occupation or genocide.**
 
@@ -22,7 +22,7 @@ For full license see [LICENSE](https://github.com/sipsorcery-org/sipsorcery?tab=
 
 The diagram below is a high level overview of a Real-time audio and video call between Alice and Bob. It illustrates where the `SIPSorcery` and associated libraries can help.
 
-![Real-time Communications Overview](./img/sipsorcery_realtime_overview.png)
+[Real-time Communications Overview](./img/sipsorcery_realtime_overview.png)
 
 **Supports both VoIP ([get started](#getting-started-voip)) and WebRTC ([get started](#getting-started-webrtc)).**
 

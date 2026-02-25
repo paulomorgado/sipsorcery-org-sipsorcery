@@ -20,6 +20,8 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+#nullable disable
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,6 +29,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.HighPerformance.Buffers;
 using Microsoft.Extensions.Logging;
 using SIPSorcery.Net;
 using SIPSorceryMedia.Abstractions;
@@ -568,7 +571,9 @@ namespace SIPSorcery.Media
                     pcm = PcmResampler.Resample(pcm, pcmSampleRate, _audioFormatManager.SelectedFormat.ClockRate);
                 }
 
-                byte[] encodedSample = _audioEncoder.EncodeAudio(pcm, _audioFormatManager.SelectedFormat);
+                using var buffer = new ArrayPoolBufferWriter<byte>(8192);
+                _audioEncoder.EncodeAudio(pcm, _audioFormatManager.SelectedFormat, buffer);
+                var encodedSample = buffer.WrittenMemory;
 
                 uint rtpUnits = RtpTimestampExtensions.ToRtpUnits(_audioSamplePeriodMilliseconds, _audioFormatManager.SelectedFormat.RtpClockRate);
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.Extensions.Logging;
+using SIPSorcery.UnitTests;
 using Xunit;
 
 namespace SIPSorcery.Net.UnitTests
@@ -18,8 +19,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ConstructorTestEnumParams()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             foreach (var e in Enum.GetValues(typeof(SDPSecurityDescription.SessionParameter.SrtpSessionParams)))
             {
@@ -32,8 +33,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ConstructorTestFecKey()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.SessionParameter sessionParameter = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.fec_key);
             Assert.StartsWith(SDPSecurityDescription.SessionParameter.FEC_KEY_PREFIX, sessionParameter.ToString());
@@ -41,8 +42,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ConstructorTestFecOrder()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.SessionParameter sessionParameter = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.fec_order);
             Assert.StartsWith(SDPSecurityDescription.SessionParameter.FEC_ORDER_PREFIX, sessionParameter.ToString());
@@ -50,8 +51,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ConstructorTestWsh()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.SessionParameter sessionParameter = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.wsh);
             Assert.StartsWith(SDPSecurityDescription.SessionParameter.WSH_PREFIX, sessionParameter.ToString());
@@ -59,8 +60,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ConstructorTestKdr()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.SessionParameter sessionParameter = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.kdr);
             Assert.StartsWith(SDPSecurityDescription.SessionParameter.KDR_PREFIX, sessionParameter.ToString());
@@ -68,8 +69,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ConstructorTestUNEnums()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.SessionParameter sessionParameter = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.UNAUTHENTICATED_SRTP);
             Assert.Equal(SDPSecurityDescription.SessionParameter.SrtpSessionParams.UNAUTHENTICATED_SRTP.ToString(), sessionParameter.ToString());
@@ -82,8 +83,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void WshTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.SessionParameter sessionParameter = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.wsh);
             try
@@ -119,8 +120,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void KdrTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.SessionParameter sessionParameter = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.kdr);
             try
@@ -143,31 +144,31 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             SDPSecurityDescription.SessionParameter sessionParameterKdr = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.kdr, 4);
             string sKdr = sessionParameterKdr.ToString();
-            Assert.Equal(sKdr, SDPSecurityDescription.SessionParameter.Parse(sKdr).ToString());
-            Assert.Equal("KDR=4", SDPSecurityDescription.SessionParameter.Parse(sKdr).ToString());
+            Assert.Equal(sKdr, SDPSecurityDescription.SessionParameter.Parse(sKdr.AsSpan()).ToString());
+            Assert.Equal("KDR=4", SDPSecurityDescription.SessionParameter.Parse(sKdr.AsSpan()).ToString());
 
             SDPSecurityDescription.SessionParameter sessionParameterWsh = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.wsh, 64);
             string sWsh = sessionParameterWsh.ToString();
-            Assert.Equal(sWsh, SDPSecurityDescription.SessionParameter.Parse(sWsh).ToString());
-            Assert.Equal("WSH=64", SDPSecurityDescription.SessionParameter.Parse(sWsh).ToString());
+            Assert.Equal(sWsh, SDPSecurityDescription.SessionParameter.Parse(sWsh.AsSpan()).ToString());
+            Assert.Equal("WSH=64", SDPSecurityDescription.SessionParameter.Parse(sWsh.AsSpan()).ToString());
 
             SDPSecurityDescription.SessionParameter sessionParameterFecOrder = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.fec_order, (uint)SDPSecurityDescription.SessionParameter.FecTypes.FEC_SRTP);
             string sFecOrder = sessionParameterFecOrder.ToString();
-            Assert.Equal(sFecOrder, SDPSecurityDescription.SessionParameter.Parse(sFecOrder).ToString());
-            Assert.Equal(sFecOrder, SDPSecurityDescription.SessionParameter.Parse("FEC_ORDER=FEC_SRTP").ToString());
+            Assert.Equal(sFecOrder, SDPSecurityDescription.SessionParameter.Parse(sFecOrder.AsSpan()).ToString());
+            Assert.Equal(sFecOrder, SDPSecurityDescription.SessionParameter.Parse("FEC_ORDER=FEC_SRTP".AsSpan()).ToString());
 
             sessionParameterFecOrder.FecOrder = SDPSecurityDescription.SessionParameter.FecTypes.SRTP_FEC;
             Assert.NotEqual(sFecOrder, sessionParameterFecOrder.ToString());
             sFecOrder = sessionParameterFecOrder.ToString();
-            Assert.Equal(sFecOrder, SDPSecurityDescription.SessionParameter.Parse(sFecOrder).ToString());
+            Assert.Equal(sFecOrder, SDPSecurityDescription.SessionParameter.Parse(sFecOrder.AsSpan()).ToString());
 
             SDPSecurityDescription.SessionParameter sessionParameterFecKey = SessionParameterFactory.Create(SDPSecurityDescription.SessionParameter.SrtpSessionParams.fec_key);
-            sessionParameterFecKey.FecKey = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4");
+            sessionParameterFecKey.FecKey = SDPSecurityDescription.KeyParameter.Parse("inline:MTIzNDU2Nzg5QUJDREUwMTIzNDU2Nzg5QUJjZGVm|2^20|1:4".AsSpan());
             string FecKey = sessionParameterFecKey.ToString();
             Assert.StartsWith(SDPSecurityDescription.SessionParameter.FEC_KEY_PREFIX, FecKey);
             Assert.EndsWith("1:4", FecKey);
@@ -178,15 +179,15 @@ namespace SIPSorcery.Net.UnitTests
             string sUn1 = sessionParameterUn1.ToString();
             string sUn2 = sessionParameterUn2.ToString();
             string sUn3 = sessionParameterUn3.ToString();
-            Assert.Equal(sUn1, SDPSecurityDescription.SessionParameter.Parse(sUn1).ToString());
-            Assert.NotEqual(SDPSecurityDescription.SessionParameter.SrtpSessionParams.UNENCRYPTED_SRTP, SDPSecurityDescription.SessionParameter.Parse(sUn2).SrtpSessionParam);
-            Assert.Equal(SDPSecurityDescription.SessionParameter.SrtpSessionParams.UNENCRYPTED_SRTP, SDPSecurityDescription.SessionParameter.Parse(sUn3).SrtpSessionParam);
+            Assert.Equal(sUn1, SDPSecurityDescription.SessionParameter.Parse(sUn1.AsSpan()).ToString());
+            Assert.NotEqual(SDPSecurityDescription.SessionParameter.SrtpSessionParams.UNENCRYPTED_SRTP, SDPSecurityDescription.SessionParameter.Parse(sUn2.AsSpan()).SrtpSessionParam);
+            Assert.Equal(SDPSecurityDescription.SessionParameter.SrtpSessionParams.UNENCRYPTED_SRTP, SDPSecurityDescription.SessionParameter.Parse(sUn3.AsSpan()).SrtpSessionParam);
 
-            Assert.Null(SDPSecurityDescription.SessionParameter.Parse(null));
-            Assert.Null(SDPSecurityDescription.SessionParameter.Parse(""));
+            Assert.Null(SDPSecurityDescription.SessionParameter.Parse(default));
+            Assert.Null(SDPSecurityDescription.SessionParameter.Parse("".AsSpan()));
 
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.SessionParameter.Parse("wsh=64"));
-            Assert.Throws<FormatException>(() => SDPSecurityDescription.SessionParameter.Parse("ĀĀ\0\0\0\0\0\0\0\0\0\0\0\0\0\0"));
+            Assert.Throws<FormatException>(() => SDPSecurityDescription.SessionParameter.Parse("wsh=64".AsSpan()));
+            Assert.Throws<FormatException>(() => SDPSecurityDescription.SessionParameter.Parse("ĀĀ\0\0\0\0\0\0\0\0\0\0\0\0\0\0".AsSpan()));
         }
     }
 }

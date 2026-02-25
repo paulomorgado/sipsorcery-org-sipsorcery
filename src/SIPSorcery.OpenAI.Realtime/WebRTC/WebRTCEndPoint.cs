@@ -142,7 +142,7 @@ public class WebRTCEndPoint : IWebRTCEndPoint, IDisposable
         {
             if (pc.signalingState == RTCSignalingState.have_local_offer)
             {
-                _logger.LogTrace($"Local SDP:\n{pc.localDescription.sdp}");
+                _logger.LogTrace($"Local SDP:\n{pc.localDescription?.sdp}");
             }
             else if (pc.signalingState is RTCSignalingState.have_remote_offer or RTCSignalingState.stable)
             {
@@ -171,7 +171,7 @@ public class WebRTCEndPoint : IWebRTCEndPoint, IDisposable
         return pc;
     }
 
-    public void SendAudio(uint durationRtpUnits, byte[] sample)
+    public void SendAudio(uint durationRtpUnits, ReadOnlyMemory<byte> sample)
     {
         PeerConnection.Match(
             pc =>

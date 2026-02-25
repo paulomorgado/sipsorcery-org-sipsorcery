@@ -41,6 +41,8 @@ using WebSocketSharp.Server;
 using AudioScope;
 using System.Numerics;
 using SIPSorceryMedia.Abstractions;
+using System.Buffers;
+using CommunityToolkit.HighPerformance.Buffers;
 
 namespace demo
 {
@@ -158,11 +160,15 @@ namespace demo
 
                 if (media == SDPMediaTypesEnum.audio)
                 {
-                    var decodedSample = audioEncoder.DecodeAudio(rtpPkt.Payload, pc.AudioStream.NegotiatedFormat.ToAudioFormat());
+                    using var buffer = new ArrayPoolBufferWriter<short>(8192);
+                    audioEncoder.DecodeAudio(rtpPkt.Payload.Span, pc.AudioStream.NegotiatedFormat.ToAudioFormat(), buffer);
+                    var decodedSample = buffer.WrittenSpan;
 
-                    var samples = decodedSample
-                        .Select(s => new Complex(s / 32768f, 0f))
-                        .ToArray();
+                    var samples = new Complex[decodedSample.Length];
+                    for (int i = 0; i < samples.Length; i++)
+                    {
+                        samples[i] = new Complex(decodedSample[i] / 32768f, 0f);
+                    }
 
                     var frame = _audioScopeForm.Invoke(() => _audioScopeForm.ProcessAudioSample(samples));
 

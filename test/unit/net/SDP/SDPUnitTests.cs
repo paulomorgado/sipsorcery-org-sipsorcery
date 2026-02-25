@@ -9,11 +9,13 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using Microsoft.Extensions.Logging;
+using SIPSorcery.UnitTests;
 using SIPSorceryMedia.Abstractions;
 using Xunit;
 
@@ -36,8 +38,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseSDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -53,7 +55,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=ptime:20" + m_CRLF +
                 "a=sendrecv";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
@@ -70,8 +72,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseBriaSDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
             string sdpStr = 
                 "v=0" + 
                 "o=- 5 2 IN IP4 10.1.1.2" + m_CRLF +
@@ -84,7 +86,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=fmtp:101 0-15" + m_CRLF +
                 "a=alt:1 1 : STu/ZtOu 7hiLQmUp 10.1.1.2 34640";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
@@ -100,8 +102,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseTelephoneEventSDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 " v=0" + m_CRLF +
@@ -117,7 +119,7 @@ namespace SIPSorcery.Net.UnitTests
                 " a=ptime:20" + m_CRLF +
                 " a=sendrecv";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
@@ -135,11 +137,11 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseBadFormatBriaSDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
             string sdpStr = " v=0\r\no=- 5 2 IN IP4 10.1.1.2\r\n s=CounterPath Bria\r\nc=IN IP4 144.137.16.240\r\nt=0 0\r\n m=audio 34640 RTP/AVP 0 8 101\r\na=sendrecv\r\na=rtpmap:101 telephone-event/8000\r\na=fmtp:101 0-15\r\na=alt:1 1 : STu/ZtOu 7hiLQmUp 10.1.1.2 34640\r\n";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Debug.WriteLine(sdp.ToString());
 
@@ -150,8 +152,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseICESessionAttributesUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
               "v=0" + m_CRLF +
@@ -168,7 +170,7 @@ namespace SIPSorcery.Net.UnitTests
               "a=candidate:1 1 UDP 2130706431 10.0.1.1 8998 typ host" + m_CRLF +
               "a=candidate:2 1 UDP 1694498815 192.0.2.3 45664 typ srflx raddr 10.0.1.1 rport 8998";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Debug.WriteLine(sdp.ToString());
 
@@ -183,8 +185,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseMultipleMediaAnnouncementsUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr = "v=0" + m_CRLF +
                 "o=- 13064410510996677 3 IN IP4 10.1.1.2" + m_CRLF +
@@ -205,7 +207,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=sendrecv" + m_CRLF +
                 "a=ssrc:1679134341 cname:de431dae-58f3-4191-9efe-5d86c1235b60";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Debug.WriteLine(sdp.ToString());
 
@@ -221,8 +223,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseAudioAndVideoConnectionsUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr = "v=0" + m_CRLF +
                 "o=Cisco-SIPUA 6396 0 IN IP4 101.180.234.134" + m_CRLF +
@@ -238,7 +240,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=rtpmap:98 t140/1000" + m_CRLF +
                 "a=fmtp:100 98/98";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
@@ -254,8 +256,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseMediaTypeImageUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr = "v=0" + m_CRLF +
                 "o=OfficeMasterDirectSIP 806542878 806542879 IN IP4 10.2.0.110" + m_CRLF +
@@ -266,7 +268,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=T38FaxRateManagement:transferredTCF" + m_CRLF +
                 "a=T38FaxVersion:0";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
@@ -283,8 +285,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseEdgeBrowserSdpUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr = "v=0" + m_CRLF +
                 "o=- 8028343537520473029 0 IN IP4 127.0.0.1" + m_CRLF +
@@ -313,7 +315,7 @@ namespace SIPSorcery.Net.UnitTests
                 "c=IN IP4 0.0.0.0" + m_CRLF +
                 "a=inactive";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Debug.WriteLine(sdp.ToString());
 
@@ -330,8 +332,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseIPv6SDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr = "v=0" + m_CRLF +
                 "o=nasa1 971731711378798081 0 IN IP6 2201:056D::112E:144A:1E24" + m_CRLF +
@@ -344,7 +346,7 @@ namespace SIPSorcery.Net.UnitTests
                 "m=video 6024 RTP/AVP 107" + m_CRLF +
                 "a=rtpmap:107 H263-1998/90000";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
@@ -358,8 +360,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void GetFirstMediaOfferRTPSocketUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -387,8 +389,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void GetFirstMediaOfferIPv6RTPSocketUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr = "v=0" + m_CRLF +
                 "o=nasa1 971731711378798081 0 IN IP6 2201:056D::112E:144A:1E24" + m_CRLF +
@@ -413,8 +415,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void GetFirstMediaSteamStatusUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -430,7 +432,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=ptime:20" + m_CRLF +
                 "a=sendrecv";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Assert.Equal(MediaStreamStatusEnum.SendRecv, sdp.Media.First().MediaStreamStatus);
         }
@@ -442,8 +444,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void GetFirstMediaSteamStatusNonDefaultUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -459,7 +461,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=ptime:20" + m_CRLF +
                 "a=sendonly";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Assert.Equal(MediaStreamStatusEnum.SendOnly, sdp.Media.First().MediaStreamStatus);
         }
@@ -470,8 +472,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void GetSessionMediaSteamStatusUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -487,7 +489,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=silenceSupp:off - - - -" + m_CRLF +
                 "a=ptime:20";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Assert.Equal(MediaStreamStatusEnum.RecvOnly, sdp.SessionMediaStreamStatus);
             Assert.Equal(MediaStreamStatusEnum.RecvOnly, sdp.Media.First().MediaStreamStatus);
@@ -500,8 +502,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void GetAnnMediaSteamDiffToStreamStatusUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -518,7 +520,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=ptime:20" + m_CRLF +
                 "a=sendonly";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Assert.Equal(MediaStreamStatusEnum.RecvOnly, sdp.SessionMediaStreamStatus);
             Assert.Equal(MediaStreamStatusEnum.SendOnly, sdp.Media.First().MediaStreamStatus);
@@ -531,8 +533,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void GetAnnMediaSteamNotreamStatusAttributesUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -547,7 +549,7 @@ namespace SIPSorcery.Net.UnitTests
                 "a=silenceSupp:off - - - -" + m_CRLF +
                 "a=ptime:20";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Assert.Null(sdp.SessionMediaStreamStatus);
             Assert.Equal(MediaStreamStatusEnum.SendRecv, sdp.Media.First().MediaStreamStatus);
@@ -559,8 +561,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void AnnouncementMediaSteamStatuRoundtripUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -576,11 +578,11 @@ namespace SIPSorcery.Net.UnitTests
                 "a=ptime:20" + m_CRLF +
                 "a=sendonly";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP sdpRoundTrip = SDP.ParseSDPDescription(sdp.ToString());
+            SDP sdpRoundTrip = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal(MediaStreamStatusEnum.SendOnly, sdpRoundTrip.Media.First().MediaStreamStatus);
         }
@@ -591,8 +593,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void SessionMediaSteamStatusRoundTripUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -608,11 +610,11 @@ namespace SIPSorcery.Net.UnitTests
                 "a=silenceSupp:off - - - -" + m_CRLF +
                 "a=ptime:20";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP sdpRoundTrip = SDP.ParseSDPDescription(sdp.ToString());
+            SDP sdpRoundTrip = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal(MediaStreamStatusEnum.RecvOnly, sdpRoundTrip.SessionMediaStreamStatus);
         }
@@ -623,8 +625,8 @@ namespace SIPSorcery.Net.UnitTests
         [Fact]
         public void ParseWebRtcSDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -658,11 +660,11 @@ a=rtcp-mux
 a=mid:video
 a=rtpmap:100 VP8/90000";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal("BUNDLE audio video", sdp.Group);
             Assert.Equal("BUNDLE audio video", rndTripSdp.Group);
@@ -686,8 +688,8 @@ a=rtpmap:100 VP8/90000";
         [Fact]
         public void ParseChromeOfferSDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -854,11 +856,11 @@ a=ssrc:1316862390 mslabel:ZJChDbsCl9zy9kENxMxREmEpZqKfhy2AGtsZ
 a=ssrc:1316862390 label:e9e6e397-1589-4df3-bd6a-53124925325a
 a=sendrecv";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal("BUNDLE 0 1", sdp.Group);
             Assert.Equal("BUNDLE 0 1", rndTripSdp.Group);
@@ -878,8 +880,8 @@ a=sendrecv";
         [Fact]
         public void ParseDataChannelOnlyOfferSDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -899,11 +901,11 @@ a=mid:0
 a=sctp-port:5000
 a=max-message-size:262144";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal("BUNDLE 0", rndTripSdp.Group);
             Assert.Single(rndTripSdp.Media);
@@ -920,8 +922,8 @@ a=max-message-size:262144";
         [Fact]
         public void ParsePionDataChannelOnlyOfferSDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -937,11 +939,11 @@ a=mid:0
 a=sendrecv
 a=sctpmap:5000 webrtc-datachannel 1024";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal("BUNDLE 0", rndTripSdp.Group);
             Assert.Single(rndTripSdp.Media);
@@ -957,8 +959,8 @@ a=sctpmap:5000 webrtc-datachannel 1024";
         [Fact]
         public void ParseMediaFormatWithHyphenNameUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -975,11 +977,11 @@ a=rtpmap:96 H263-1998/90000
 a=fmtp:96 QCIF=3
 a=sendrecv";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal(96, rndTripSdp.Media.Where(x => x.Media == SDPMediaTypesEnum.video).Single().MediaFormats.Single().Key);
             Assert.Equal("H263-1998", rndTripSdp.Media.Where(x => x.Media == SDPMediaTypesEnum.video).Single().MediaFormats.Single().Value.Name());
@@ -992,8 +994,8 @@ a=sendrecv";
         [Fact]
         public void ParseMediaFormatWithFowardSlashUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -1006,11 +1008,11 @@ a=rtpmap:111 opus/48000/2
 a=fmtp:111 minptime=10;useinbandfec=1
 a=sendrecv";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal(111, rndTripSdp.Media.Where(x => x.Media == SDPMediaTypesEnum.audio).Single().MediaFormats.Single().Key);
             Assert.Equal("opus", rndTripSdp.Media.Where(x => x.Media == SDPMediaTypesEnum.audio).Single().MediaFormats.Single().Value.Name());
@@ -1023,8 +1025,8 @@ a=sendrecv";
         [Fact]
         public void ParseOfferWithFmtpPreceedingRtmapTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -1048,7 +1050,7 @@ a=rtpmap:96 VP8/90000
 a=setup:active
 a=ssrc:2404235415 cname:{7c06c5db-d3db-4891-b729-df4919014c3f}";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Assert.Equal(96, sdp.Media.Where(x => x.Media == SDPMediaTypesEnum.video).Single().MediaFormats.Single().Key);
             Assert.Equal("VP8", sdp.Media.Where(x => x.Media == SDPMediaTypesEnum.video).Single().MediaFormats.Single().Value.Name());
@@ -1063,8 +1065,8 @@ a=ssrc:2404235415 cname:{7c06c5db-d3db-4891-b729-df4919014c3f}";
         [Fact]
         public void ParseMcpttTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -1081,11 +1083,11 @@ a=sendrecv
 m=application 55317 udp MCPTT
 a=fmtp:MCPTT mc_queueing;mc_priority=4";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal("MCPTT", rndTripSdp.Media.Where(x => x.Media == SDPMediaTypesEnum.application).Single().ApplicationMediaFormats.Single().Key);
             Assert.Equal("mc_queueing;mc_priority=4", rndTripSdp.Media.Where(x => x.Media == SDPMediaTypesEnum.application).Single().ApplicationMediaFormats.Single().Value.Fmtp);
@@ -1097,8 +1099,8 @@ a=fmtp:MCPTT mc_queueing;mc_priority=4";
         [Fact]
         public void DescriptionAttributeRoundTripTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -1122,11 +1124,11 @@ i=video title
 a=sendrecv
 ";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal("A session description", rndTripSdp.SessionDescription);
             Assert.Equal("speech", rndTripSdp.Media.Where(x => x.Media == SDPMediaTypesEnum.audio).Single().MediaDescription);
@@ -1139,8 +1141,8 @@ a=sendrecv
         [Fact]
         public void TIASBandwidthAttributeRoundTripTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -1162,11 +1164,11 @@ a=label:2
 a=sendrecv
 ";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal(256000U, rndTripSdp.Media.Where(x => x.Media == SDPMediaTypesEnum.video).Single().TIASBandwidth);
         }
@@ -1177,8 +1179,8 @@ a=sendrecv
         [Fact]
         public void ParseFireFoxOfferSDPUnitTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 @"v=0
@@ -1245,11 +1247,11 @@ a=ssrc:3366495178 cname:{7eee5d94-87f0-4e5e-a6ae-ac6f067c4782}
 a=ssrc:777490417 cname:{7eee5d94-87f0-4e5e-a6ae-ac6f067c4782}
 a=ssrc-group:FID 3366495178 777490417";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString());
+            SDP rndTripSdp = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal("BUNDLE 0", sdp.Group);
             Assert.Equal("BUNDLE 0", rndTripSdp.Group);
@@ -1268,8 +1270,8 @@ a=ssrc-group:FID 3366495178 777490417";
         [Fact]
         public void AnnoucementMediaCheckTest()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -1281,7 +1283,7 @@ a=ssrc-group:FID 3366495178 777490417";
                 "a=accept-types:text/plain text/x-msrp-heartbeat" + m_CRLF +
                 "a=path:msrp://192.168.0.105:57102/10vMB2Ee;tcp";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             Assert.Null(sdp.SessionMediaStreamStatus);
             Assert.Equal(SDPMediaTypesEnum.message, sdp.Media.First().Media);
@@ -1299,7 +1301,7 @@ a=ssrc-group:FID 3366495178 777490417";
         [Fact]
         public void Media_Formats_Order_Test()
         {
-            logger.LogDebug("--> {MethodName}", System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
 
             var sdp = new SDP();
 
@@ -1316,7 +1318,7 @@ a=ssrc-group:FID 3366495178 777490417";
 
             logger.LogDebug("{sdp}", sdp.ToString());
 
-            var sdpParsed = SDP.ParseSDPDescription(sdp.ToString());
+            var sdpParsed = SDP.ParseSDPDescription(sdp.ToString().AsSpan());
 
             Assert.Equal(8, sdpParsed.Media.Where(x => x.Media == SDPMediaTypesEnum.audio).First().MediaFormats.First().Key);
         }
@@ -1331,7 +1333,7 @@ a=ssrc-group:FID 3366495178 777490417";
         public void Parse_Number_Of_Ports_Unit_Test()
         {
             logger.LogDebug("--> " + System.Reflection.MethodBase.GetCurrentMethod().Name);
-            logger.BeginScope(System.Reflection.MethodBase.GetCurrentMethod().Name);
+            logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             string sdpStr =
                 "v=0" + m_CRLF +
@@ -1347,7 +1349,7 @@ a=ssrc-group:FID 3366495178 777490417";
                 "a=ptime:20" + m_CRLF +
                 "a=sendrecv";
 
-            SDP sdp = SDP.ParseSDPDescription(sdpStr);
+            SDP sdp = SDP.ParseSDPDescription(sdpStr.AsSpan());
 
             logger.LogDebug(sdp.ToString());
 
