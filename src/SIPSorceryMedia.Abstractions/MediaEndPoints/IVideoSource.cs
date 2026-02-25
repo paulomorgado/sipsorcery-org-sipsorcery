@@ -71,9 +71,9 @@ public interface IVideoSource
     /// <see cref="RawImage.Sample"/> pointer is only valid for the duration of the handler.
     /// See <see cref="IVideoSource"/>.
     /// </summary>
-    event RawVideoSampleFasterDelegate OnVideoSourceRawSampleFaster; // Avoid to use byte[] to improve performance
+    event RawVideoSampleFasterDelegate? OnVideoSourceRawSampleFaster; // Avoid to use byte[] to improve performance
 
-    event SourceErrorDelegate OnVideoSourceError;
+    event SourceErrorDelegate? OnVideoSourceError;
 
     Task PauseVideo();
 

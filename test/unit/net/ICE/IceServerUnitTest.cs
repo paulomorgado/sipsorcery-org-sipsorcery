@@ -27,7 +27,9 @@ using System.Net;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using SIPSorcery.UnitTests;
+using SIPSorcery.Sys;
 using Xunit;
+using Polyfills;
 
 namespace SIPSorcery.Net.UnitTests
 {
@@ -72,9 +74,9 @@ namespace SIPSorcery.Net.UnitTests
             var server = IceServer.ParseIceServer("stun:stun.example.com:3478");
 
             Assert.Equal(System.Net.Sockets.ProtocolType.Udp, server.Protocol);
-            Assert.Equal(STUNSchemesEnum.stun, server.Uri.Scheme);
-            Assert.Null(server._username);
-            Assert.Null(server._password);
+            Assert.Equal(STUNSchemesEnum.stun, server._uri.Scheme);
+            Assert.True(server.Username.IsEmpty);
+            Assert.True(server.Password.IsEmpty);
         }
 
         [Fact]
@@ -84,10 +86,10 @@ namespace SIPSorcery.Net.UnitTests
 
             var server = IceServer.ParseIceServer("turn:turn.example.com?transport=tcp;user1;pass1");
 
-            Assert.Equal(STUNSchemesEnum.turn, server.Uri.Scheme);
+            Assert.Equal(STUNSchemesEnum.turn, server._uri.Scheme);
             Assert.Equal(System.Net.Sockets.ProtocolType.Tcp, server.Protocol);
-            Assert.Equal("user1", server._username);
-            Assert.Equal("pass1", server._password);
+            Assert.True("user1"u8.SequenceEqual(server.Username.Span));
+            Assert.True("pass1"u8.SequenceEqual(server.Password.Span));
         }
 
         [Fact]
@@ -97,7 +99,7 @@ namespace SIPSorcery.Net.UnitTests
 
             var server = IceServer.ParseIceServer("stun.example.com:3478");
 
-            Assert.Equal(STUNSchemesEnum.stun, server.Uri.Scheme);
+            Assert.Equal(STUNSchemesEnum.stun, server._uri.Scheme);
         }
 
         [Theory]
@@ -109,7 +111,7 @@ namespace SIPSorcery.Net.UnitTests
         {
             var server = IceServer.ParseIceServer(value);
 
-            Assert.Equal(expectedScheme, server.Uri.Scheme);
+            Assert.Equal(expectedScheme, server._uri.Scheme);
         }
 
         [Fact]
@@ -119,7 +121,7 @@ namespace SIPSorcery.Net.UnitTests
 
             var server = IceServer.ParseIceServer("stun:stun1.example.com, stun:stun2.example.com");
 
-            Assert.Contains("stun1", server.Uri.ToString());
+            Assert.Contains("stun1", server._uri.ToString());
         }
 
         [Fact]
@@ -127,9 +129,9 @@ namespace SIPSorcery.Net.UnitTests
         {
             var server = IceServer.ParseIceServer("\"turn:turn.example.com\";\"user1\";'pass1'");
 
-            Assert.Equal(STUNSchemesEnum.turn, server.Uri.Scheme);
-            Assert.Equal("user1", server._username);
-            Assert.Equal("pass1", server._password);
+            Assert.Equal(STUNSchemesEnum.turn, server._uri.Scheme);
+            Assert.Equal("user1", Encoding.UTF8.GetString(server.Username.Span));
+            Assert.Equal("pass1", Encoding.UTF8.GetString(server.Password.Span));
         }
 
         [Fact]
@@ -137,8 +139,8 @@ namespace SIPSorcery.Net.UnitTests
         {
             var server = IceServer.ParseIceServer("stun:stun.example.com;'user\";\"pass'");
 
-            Assert.Equal("'user\"", server._username);
-            Assert.Equal("\"pass'", server._password);
+            Assert.Equal("'user\"", Encoding.UTF8.GetString(server.Username.Span));
+            Assert.Equal("\"pass'", Encoding.UTF8.GetString(server.Password.Span));
         }
 
         [Fact]
@@ -146,15 +148,15 @@ namespace SIPSorcery.Net.UnitTests
         {
             var server = IceServer.ParseIceServer("stun:stun.example.com; ; ");
 
-            Assert.Null(server._username);
-            Assert.Null(server._password);
+            Assert.True(server.Username.IsEmpty);
+            Assert.True(server.Password.IsEmpty);
         }
 
         [Fact]
         public void ParseIceServer_NullThrowsArgumentNull()
         {
             logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
-            Assert.Throws<ArgumentNullException>(() => IceServer.ParseIceServer(null));
+            Assert.Throws<ArgumentException>(() => IceServer.ParseIceServer(null));
         }
 
         [Theory]
@@ -172,9 +174,9 @@ namespace SIPSorcery.Net.UnitTests
         {
             var server = IceServer.ParseIceServer(", ,;user;pass");
 
-            Assert.Equal(", ,", server.Uri.Host);
-            Assert.Equal("user", server._username);
-            Assert.Equal("pass", server._password);
+            Assert.Equal(", ,", server._uri.Host);
+            Assert.Equal("user", Encoding.UTF8.GetString(server.Username.Span));
+            Assert.Equal("pass", Encoding.UTF8.GetString(server.Password.Span));
         }
 
         // ---- Transaction id ----
@@ -246,7 +248,7 @@ namespace SIPSorcery.Net.UnitTests
             var resp = new STUNMessage(STUNMessageTypesEnum.AllocateSuccessResponse);
             resp.Header.TransactionId = Encoding.ASCII.GetBytes("99999900wxyz"); // wrong prefix/id, 12 chars.
 
-            bool candidates = server.GotStunResponse(resp, new IPEndPoint(IPAddress.Parse("1.2.3.4"), 3478));
+            var candidates = server.GotStunResponse(resp, new IPEndPoint(IPAddress.Parse("1.2.3.4"), 3478));
 
             Assert.False(candidates);
             Assert.Equal(5, server.OutstandingRequestsSent);   // untouched - response ignored.
@@ -267,7 +269,7 @@ namespace SIPSorcery.Net.UnitTests
             resp.AddXORAddressAttribute(STUNAttributeTypesEnum.XORRelayedAddress, IPAddress.Parse("198.51.100.20"), 60000);
             resp.Attributes.Add(Lifetime(600));
 
-            bool candidates = server.GotStunResponse(resp, new IPEndPoint(IPAddress.Parse("1.2.3.4"), 3478));
+            var candidates = server.GotStunResponse(resp, new IPEndPoint(IPAddress.Parse("1.2.3.4"), 3478));
 
             Assert.True(candidates);
             Assert.Equal(new IPEndPoint(IPAddress.Parse("203.0.113.10"), 50000), server.ServerReflexiveEndPoint);
@@ -290,7 +292,7 @@ namespace SIPSorcery.Net.UnitTests
             resp.Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Nonce, Encoding.UTF8.GetBytes("n1")));
             resp.Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Realm, Encoding.UTF8.GetBytes("r1")));
 
-            bool candidates = server.GotStunResponse(resp, new IPEndPoint(IPAddress.Parse("1.2.3.4"), 3478));
+            var candidates = server.GotStunResponse(resp, new IPEndPoint(IPAddress.Parse("1.2.3.4"), 3478));
 
             Assert.False(candidates);
             Assert.Equal("n1", Encoding.UTF8.GetString(server.Nonce));
@@ -313,7 +315,7 @@ namespace SIPSorcery.Net.UnitTests
             // expected authentication trigger and is discounted (count resets to 1).
             server.GotStunResponse(Build401(server, "n0"), new IPEndPoint(IPAddress.Parse("1.2.3.4"), 3478));
             Assert.Equal(1, server.ErrorResponseCount);
-            Assert.NotNull(server.Nonce);   // credentials will now be attached to subsequent Allocates.
+            Assert.True(!server.Nonce.IsEmpty);   // credentials will now be attached to subsequent Allocates.
 
             // Every further 401 comes back DESPITE credentials being sent, so the count must keep
             // climbing rather than being pinned at 1.
@@ -354,7 +356,7 @@ namespace SIPSorcery.Net.UnitTests
 
             Assert.Equal(1, server.ErrorResponseCount);
             Assert.Equal(originalTxId, server.TransactionID);  // not an auth error, no rotation.
-            Assert.Null(server.Nonce);
+            Assert.True(server.Nonce.IsEmpty);
         }
 
         [Fact]
@@ -367,7 +369,7 @@ namespace SIPSorcery.Net.UnitTests
             var resp = ResponseFor(server, STUNMessageTypesEnum.BindingSuccessResponse);
             resp.AddXORMappedAddressAttribute(IPAddress.Parse("203.0.113.55"), 40000);
 
-            bool candidates = server.GotStunResponse(resp, new IPEndPoint(IPAddress.Parse("1.2.3.4"), 3478));
+            var candidates = server.GotStunResponse(resp, new IPEndPoint(IPAddress.Parse("1.2.3.4"), 3478));
 
             Assert.True(candidates);
             Assert.Equal(new IPEndPoint(IPAddress.Parse("203.0.113.55"), 40000), server.ServerReflexiveEndPoint);

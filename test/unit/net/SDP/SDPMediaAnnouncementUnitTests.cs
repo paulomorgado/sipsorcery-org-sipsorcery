@@ -214,7 +214,7 @@ namespace SIPSorcery.Net.UnitTests
             var fingerprint = $"sha-256 {System.Guid.NewGuid():N}";
             var iceRoles = System.Enum.GetValues(typeof(IceRolesEnum)).Cast<IceRolesEnum>().ToArray();
             var iceRole = iceRoles[randomBytes[3] % iceRoles.Length];
-            var candidate = System.Guid.NewGuid().ToString("N");
+            var candidate = "1390596646 1 udp 2130706431 192.0.2.1 8998 typ host generation 0";
             var iceOptions = System.Guid.NewGuid().ToString("N");
             var mediaID = System.Guid.NewGuid().ToString("N");
             var extensionID = 1 + randomBytes[4] % 14;
@@ -242,7 +242,7 @@ namespace SIPSorcery.Net.UnitTests
                 IcePwd = icePwd,
                 DtlsFingerprint = fingerprint,
                 IceRole = iceRole,
-                IceCandidates = new List<string> { candidate },
+                IceCandidates = [ RTCIceCandidate.Parse(candidate) ],
                 IceOptions = iceOptions,
                 IceEndOfCandidates = true,
                 MediaID = mediaID,
@@ -297,7 +297,7 @@ namespace SIPSorcery.Net.UnitTests
                 IceUfrag = " \t",
                 IcePwd = " \t",
                 DtlsFingerprint = " \t",
-                IceCandidates = new List<string>(),
+                IceCandidates = [],
                 MediaID = " \t",
                 SsrcGroupID = System.Guid.NewGuid().ToString("N"),
                 SctpMap = sctpMap,
