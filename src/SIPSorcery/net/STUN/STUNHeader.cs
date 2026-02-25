@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // Filename: STUNHeader.cs
 //
 // Description: Implements STUN header as defined in RFC5389
@@ -121,7 +121,7 @@ namespace SIPSorcery.Net
         ErrorResponse = 3,
     }
 
-    public class STUNMessageTypes
+    public static class STUNMessageTypes
     {
         public static STUNMessageTypesEnum GetSTUNMessageTypeForId(int stunMessageTypeId)
         {
@@ -129,12 +129,12 @@ namespace SIPSorcery.Net
         }
     }
 
-    public class STUNHeader
+    public partial class STUNHeader
     {
         public const byte STUN_INITIAL_BYTE_MASK = 0xc0; // Mask to check that the first two bits of the packet are 00.
         public const ushort STUN_MESSAGE_CLASS_MASK = 0x0110;
         public const int STUN_HEADER_LENGTH = 20;
-        public const UInt32 MAGIC_COOKIE = 0x2112A442;
+        public const uint MAGIC_COOKIE = 0x2112A442;
         public const int TRANSACTION_ID_LENGTH = 12;
 
         public STUNMessageTypesEnum MessageType = STUNMessageTypesEnum.BindingRequest;
@@ -147,7 +147,7 @@ namespace SIPSorcery.Net
             }
         }
 
-        public UInt16 MessageLength;
+        public ushort MessageLength;
         public byte[] TransactionId = new byte[TRANSACTION_ID_LENGTH];
 
         public STUNHeader()
@@ -159,20 +159,25 @@ namespace SIPSorcery.Net
             TransactionId = Encoding.ASCII.GetBytes(Guid.NewGuid().ToString().Substring(0, TRANSACTION_ID_LENGTH));
         }
 
-        public static STUNHeader ParseSTUNHeader(byte[] buffer)
+        public static STUNHeader? ParseSTUNHeader(byte[] buffer)
         {
-            return ParseSTUNHeader(new ArraySegment<byte>(buffer, 0, buffer.Length));
+            return ParseSTUNHeader(buffer.AsSpan(0, buffer.Length));
+        }
+
+        public static STUNHeader? ParseSTUNHeader(ArraySegment<byte> bufferSegment)
+        {
+            return ParseSTUNHeader(bufferSegment.AsSpan());
         }
 
         /// <summary>
         /// Parses a STUN header from the start of the supplied segment.
         /// </summary>
-        /// <param name="bufferSegment">The buffer to parse. A segment with no backing array, or
+        /// <param name="buffer">The buffer to parse. An empty buffer, or
         /// one too short to hold a header, yields null rather than throwing.</param>
         /// <returns>The parsed header, or null if the segment cannot hold one.</returns>
         /// <exception cref="ApplicationException">The buffer is long enough to hold a header but
         /// does not begin with the two zero bits every STUN message starts with.</exception>
-        public static STUNHeader ParseSTUNHeader(ArraySegment<byte> bufferSegment)
+        public static STUNHeader? ParseSTUNHeader(ReadOnlySpan<byte> buffer)
         {
             // Check the backing array rather than comparing the segment itself against null.
             // "bufferSegment != null" does not mean the same thing on every target: ArraySegment<T>
@@ -181,27 +186,26 @@ namespace SIPSorcery.Net
             // .NET Framework it lifts to ArraySegment<T>? and is always true. It also sat after the
             // first byte had already been read, so a default segment threw a NullReferenceException
             // before reaching it.
-            if (bufferSegment.Array == null || bufferSegment.Count == 0)
+            if (buffer.IsEmpty)
             {
                 return null;
             }
 
-            var startIndex = bufferSegment.Offset;
-            if ((bufferSegment.Array[startIndex] & STUN_INITIAL_BYTE_MASK) != 0)
+            if ((buffer[0] & STUN_INITIAL_BYTE_MASK) != 0)
             {
-                throw new ApplicationException("The STUN header did not begin with 0x00.");
+                throw new SipSorceryException("The STUN header did not begin with 0x00.");
             }
 
-            if (bufferSegment.Count >= STUN_HEADER_LENGTH)
+            if (buffer.Length >= STUN_HEADER_LENGTH)
             {
-                STUNHeader stunHeader = new STUNHeader();
+                var stunHeader = new STUNHeader();
 
-                UInt16 stunTypeValue = BinaryPrimitives.ReadUInt16BigEndian(bufferSegment.Array.AsSpan(startIndex));
-                UInt16 stunMessageLength = BinaryPrimitives.ReadUInt16BigEndian(bufferSegment.Array.AsSpan(startIndex + 2));
+                var stunTypeValue = BinaryPrimitives.ReadUInt16BigEndian(buffer);
+                var stunMessageLength = BinaryPrimitives.ReadUInt16BigEndian(buffer.Slice(2));
 
                 stunHeader.MessageType = STUNMessageTypes.GetSTUNMessageTypeForId(stunTypeValue);
                 stunHeader.MessageLength = stunMessageLength;
-                Buffer.BlockCopy(bufferSegment.Array, startIndex + 8, stunHeader.TransactionId, 0, TRANSACTION_ID_LENGTH);
+                stunHeader.TransactionId = buffer.Slice(8, TRANSACTION_ID_LENGTH).ToArray();
 
                 return stunHeader;
             }

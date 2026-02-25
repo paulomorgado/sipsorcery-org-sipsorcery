@@ -6,7 +6,7 @@ namespace SdpBenchmarks.Benchmarks;
 public class SdpToStringBenchmarks
 {
 #if !LibVersion
-    System.Text.StringBuilder? _builder = new();
+    CommunityToolkit.HighPerformance.Buffers.ArrayPoolBufferWriter<char>? _writer = new(4096);
 #endif
 
     public IEnumerable<BenchmarkParams> GetScenarios() => BenchmarkParams.GetScenarios();
@@ -26,10 +26,10 @@ public class SdpToStringBenchmarks
 #if LibVersion
         return 0;
 #else
-        Debug.Assert(_builder is not null);
-        _builder.Clear();
-        Scenario.Sdp.WriteString(_builder);
-        return _builder.ToString();
+        Debug.Assert(_writer is not null);
+        _writer.Clear();
+        Scenario.Sdp.WriteString(_writer);
+        return _writer.ToString();
 #endif
     }
 }

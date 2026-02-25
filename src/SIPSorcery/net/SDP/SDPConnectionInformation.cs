@@ -14,9 +14,12 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using CommunityToolkit.HighPerformance.Buffers;
+using SIPSorcery.Sys;
 
 namespace SIPSorcery.Net
 {
@@ -40,7 +43,7 @@ namespace SIPSorcery.Net
         /// <summary>
         /// IP or multicast address for the media connection.
         /// </summary>
-        public string ConnectionAddress;
+        public string? ConnectionAddress;
 
         private SDPConnectionInformation()
         { }
@@ -51,29 +54,28 @@ namespace SIPSorcery.Net
             ConnectionAddressType = (connectionAddress.AddressFamily == AddressFamily.InterNetworkV6) ? CONNECTION_ADDRESS_TYPE_IPV6 : CONNECTION_ADDRESS_TYPE_IPV4;
         }
 
-        public static SDPConnectionInformation ParseConnectionInformation(string connectionLine)
+        public static SDPConnectionInformation ParseConnectionInformation(ReadOnlySpan<char> connectionLine)
         {
-            SDPConnectionInformation connectionInfo = new SDPConnectionInformation();
-            var connectionFields = connectionLine.AsSpan(2).Trim();
-            var fieldIndex = 0;
-            foreach (var fieldRange in connectionFields.Split(' '))
-            {
-                var field = connectionFields[fieldRange].Trim().ToString();
-                if (fieldIndex == 0)
-                {
-                    connectionInfo.ConnectionNetworkType = field;
-                }
-                else if (fieldIndex == 1)
-                {
-                    connectionInfo.ConnectionAddressType = field;
-                }
-                else if (fieldIndex == 2)
-                {
-                    connectionInfo.ConnectionAddress = field;
-                    break;
-                }
+            var connectionInfo = new SDPConnectionInformation();
 
-                fieldIndex++;
+            connectionLine = connectionLine.Slice(2).Trim();
+
+            Span<Range> fields = stackalloc Range[4];
+            var fieldCount = connectionLine.Split(fields, ' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (fieldCount > 0)
+            {
+                connectionInfo.ConnectionNetworkType = connectionLine[fields[0]].Trim().ToString();
+            }
+
+            if (fieldCount > 1)
+            {
+                connectionInfo.ConnectionAddressType = connectionLine[fields[1]].Trim().ToString();
+            }
+
+            if (fieldCount > 2)
+            {
+                connectionInfo.ConnectionAddress = connectionLine[fields[2]].Trim().ToString();
             }
 
             return connectionInfo;
@@ -81,14 +83,14 @@ namespace SIPSorcery.Net
 
         public override string ToString()
         {
-            var builder = new StringBuilder();
-            WriteString(builder);
-            return builder.ToString();
+            using var writer = new ArrayPoolBufferWriter<char>(4096);
+            WriteString(writer);
+            return writer.ToString();
         }
 
-        public void WriteString(StringBuilder builder)
+        public void WriteString(IBufferWriter<char> writer)
         {
-            builder
+            writer
                 .Append("c=")
                 .Append(ConnectionNetworkType)
                 .Append(' ')

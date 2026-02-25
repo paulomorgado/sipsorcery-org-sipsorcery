@@ -89,7 +89,7 @@ namespace demo
 
             MediaStreamTrack videoTrack = new MediaStreamTrack(videoSink.GetVideoSourceFormats(), MediaStreamStatusEnum.SendRecv);
             pc.addTrack(videoTrack);
-            pc.OnVideoFrameReceived += videoSink.GotVideoFrame;
+            pc.OnVideoFrameReceived += (System.Net.IPEndPoint remoteEndPoint, uint timestamp, ReadOnlyMemory<byte> frame, VideoFormat format) => videoSink.GotVideoFrame(remoteEndPoint, timestamp, frame.ToArray(), format);
             videoSource.OnVideoSourceEncodedSample += pc.SendVideo;
 
             pc.OnVideoFormatsNegotiated += (formats) =>

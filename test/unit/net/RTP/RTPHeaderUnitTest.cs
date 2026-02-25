@@ -260,12 +260,10 @@ namespace SIPSorcery.Net.UnitTests
             logger.LogDebug("--> {MethodName}", TestHelper.GetCurrentMethodName());
             logger.BeginScope(TestHelper.GetCurrentMethodName());
 
-            var packet = new RTPPacket(4);
+            var packet = new RTPPacket(new byte[] { 0xAA, 0x00, 0x00, 0xBB });
             packet.Header.PayloadType = 0;
             packet.Header.SequenceNumber = 1234;
             packet.Header.SyncSource = 5678;
-            packet.Payload[0] = 0xAA;
-            packet.Payload[3] = 0xBB;
 
             var buffer = packet.GetBytes();
 
@@ -289,7 +287,7 @@ namespace SIPSorcery.Net.UnitTests
             logger.BeginScope(TestHelper.GetCurrentMethodName());
 
             var backing = new byte[] { 0x11, 0x22, 0xAA, 0x00, 0x00, 0xBB, 0x33 };
-            var packet = new RTPPacket(new ArraySegment<byte>(backing, 2, 4), 0);
+            var packet = new RTPPacket(backing.AsMemory(2, 4), 0);
             packet.Header.PayloadType = 0;
             packet.Header.SequenceNumber = 4321;
 

@@ -24,6 +24,7 @@ using SIPSorcery.Net;
 using SIPSorcery.OpenAI.Realtime.Models;
 using SIPSorceryMedia.Abstractions;
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -107,6 +108,8 @@ public class WebRTCEndPoint : IWebRTCEndPoint, IDisposable
         var offer = pc.createOffer();
         await pc.setLocalDescription(offer).ConfigureAwait(false);
 
+        Debug.Assert(offer is not null);
+        Debug.Assert(offer.sdp is not null);
         var sdpAnswerResult = await _openAIRealtimeRestClient.GetSdpAnswerAsync(offer.sdp, model).ConfigureAwait(false);
 
         return sdpAnswerResult.Map(sdpAnswer =>
@@ -142,6 +145,7 @@ public class WebRTCEndPoint : IWebRTCEndPoint, IDisposable
         {
             if (pc.signalingState == RTCSignalingState.have_local_offer)
             {
+                Debug.Assert(pc.localDescription is not null);
                 _logger.LogTrace("Local SDP:\n{LocalSdp}", pc.localDescription.sdp);
             }
             else if (pc.signalingState is RTCSignalingState.have_remote_offer or RTCSignalingState.stable)
@@ -171,7 +175,7 @@ public class WebRTCEndPoint : IWebRTCEndPoint, IDisposable
         return pc;
     }
 
-    public void SendAudio(uint durationRtpUnits, byte[] sample)
+    public void SendAudio(uint durationRtpUnits, ReadOnlyMemory<byte> sample)
     {
         PeerConnection.Match(
             pc =>
