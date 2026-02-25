@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // Filename: WhipWhepServer.cs
 //
 // Description: Server-side helper for the WHIP (WebRTC-HTTP Ingestion Protocol,
@@ -31,6 +31,7 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -83,11 +84,15 @@ namespace SIPSorcery.Net
             // X_WaitForIceGatheringToComplete makes the answer SDP carry the gathered candidates, the same
             // way WhipWhepClient builds its offer - so the single HTTP response is the whole exchange.
             var answer = pc.createAnswer(new RTCAnswerOptions { X_WaitForIceGatheringToComplete = waitForIceGathering });
+            Debug.Assert(answer is not null);
+            Debug.Assert(answer.sdp is not null);
             await pc.setLocalDescription(answer).ConfigureAwait(false);
 
             logger.LogTrace("WHIP/WHEP server answer SDP:\n{Sdp}", answer.sdp);
 
-            return answer.sdp;
+            Debug.Assert(answer is not null);
+            Debug.Assert(answer.sdp is not null);
+            return answer.sdp!;
         }
     }
 }
