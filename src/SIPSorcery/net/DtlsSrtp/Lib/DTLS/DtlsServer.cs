@@ -164,14 +164,14 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
         {
             if (Log.DebugEnabled)
             {
-                Log.Debug("DTLS server raised alert: " + AlertLevel.GetText(alertLevel) + ", " + AlertDescription.GetText(alertDescription));
+                Log.Debug($"DTLS server raised alert: {AlertLevel.GetText(alertLevel)}, {AlertDescription.GetText(alertDescription)}");
             }
 
             if (message != null)
             {
                 if (Log.DebugEnabled)
                 {
-                    Log.Debug("> " + message);
+                    Log.Debug($"> {message}");
                 }
             }
             if (cause != null)
@@ -187,7 +187,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
         {
             if (Log.DebugEnabled)
             {
-                Log.Debug("DTLS server received alert: " + AlertLevel.GetText(level) + ", " + AlertDescription.GetText(alertDescription));
+                Log.Debug($"DTLS server received alert: {AlertLevel.GetText(level)}, {AlertDescription.GetText(alertDescription)}");
             }
 
             TlsAlertTypesEnum alertType = TlsAlertTypesEnum.Unassigned;
@@ -210,7 +210,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
             ProtocolVersion serverVersion = base.GetServerVersion();
             if (Log.DebugEnabled)
             {
-                Log.Debug("DTLS server negotiated " + serverVersion);
+                Log.Debug($"DTLS server negotiated {serverVersion}");
             }
             return serverVersion;
         }
@@ -239,7 +239,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
 
             if (Log.DebugEnabled)
             {
-                Log.Debug("DTLS server received client certificate chain of length " + chain.Length);
+                Log.Debug($"DTLS server received client certificate chain of length {chain.Length}");
             }
 
             for (int i = 0; i != chain.Length; i++)
@@ -247,7 +247,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
                 X509CertificateStructure entry = X509CertificateStructure.GetInstance(chain[i].GetEncoded());
                 if (Log.DebugEnabled)
                 {
-                    Log.Debug("    fingerprint:SHA-256 " + DtlsCertificateUtils.Fingerprint(entry) + " (" + entry.Subject + ")");
+                    Log.Debug($"    fingerprint:SHA-256 {DtlsCertificateUtils.Fingerprint(entry)} ({entry.Subject})");
                 }
             }
         }
@@ -261,20 +261,20 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
             {
                 if (Log.DebugEnabled)
                 {
-                    Log.Debug("Server ALPN: " + protocolName.GetUtf8Decoding());
+                    Log.Debug($"Server ALPN: {protocolName.GetUtf8Decoding()}");
                 }
             }
 
             byte[] tlsServerEndPoint = m_context.ExportChannelBinding(ChannelBinding.tls_server_end_point);
             if (Log.DebugEnabled)
             {
-                Log.Debug("Server 'tls-server-end-point': " + ToHexString(tlsServerEndPoint));
+                Log.Debug($"Server 'tls-server-end-point': {ToHexString(tlsServerEndPoint)}");
             }
 
             byte[] tlsUnique = m_context.ExportChannelBinding(ChannelBinding.tls_unique);
             if (Log.DebugEnabled)
             {
-                Log.Debug("Server 'tls-unique': " + ToHexString(tlsUnique));
+                Log.Debug($"Server 'tls-unique': {ToHexString(tlsUnique)}");
             }
 
             OnHandshakeCompleted?.Invoke(this, new DtlsHandshakeCompletedEventArgs(m_context.SecurityParameters));

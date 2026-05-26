@@ -66,10 +66,11 @@ namespace SIPSorcery.SIP
             {
                 return false;
             }
-            else {
+            else
+            {
                 value = value.Trim();
 
-                return 
+                return
                     string.Equals(value, DIALOG_EVENT_VALUE, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(value, MESSAGE_SUMMARY_EVENT_VALUE, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(value, PRESENCE_EVENT_VALUE, StringComparison.OrdinalIgnoreCase) ||
@@ -85,26 +86,31 @@ namespace SIPSorcery.SIP
             }
             else
             {
-                value = value.Trim().ToLower();
-                switch (value)
+                var valueSpan = value.AsSpan().Trim();
+                if (valueSpan.Equals(DIALOG_EVENT_VALUE, StringComparison.OrdinalIgnoreCase))
                 {
-                    case DIALOG_EVENT_VALUE:
-                        return SIPEventPackagesEnum.Dialog;
-                    case MESSAGE_SUMMARY_EVENT_VALUE:
-                        return SIPEventPackagesEnum.MessageSummary;
-                    case PRESENCE_EVENT_VALUE:
-                        return SIPEventPackagesEnum.Presence;
-                    case REFER_EVENT_VALUE:
-                        return SIPEventPackagesEnum.Refer;
-                    default:
-                        return SIPEventPackagesEnum.None;
+                    return SIPEventPackagesEnum.Dialog;
                 }
+                else if (valueSpan.Equals(MESSAGE_SUMMARY_EVENT_VALUE, StringComparison.OrdinalIgnoreCase))
+                {
+                    return SIPEventPackagesEnum.MessageSummary;
+                }
+                else if (valueSpan.Equals(PRESENCE_EVENT_VALUE, StringComparison.OrdinalIgnoreCase))
+                {
+                    return SIPEventPackagesEnum.Presence;
+                }
+                else if (valueSpan.Equals(REFER_EVENT_VALUE, StringComparison.OrdinalIgnoreCase))
+                {
+                    return SIPEventPackagesEnum.Refer;
+                }
+
+                return SIPEventPackagesEnum.None;
             }
         }
 
         public static string GetEventHeader(SIPEventPackagesEnum eventPackage)
         {
-            switch(eventPackage)
+            switch (eventPackage)
             {
                 case SIPEventPackagesEnum.Dialog:
                     return DIALOG_EVENT_VALUE;
@@ -163,9 +169,13 @@ namespace SIPSorcery.SIP
             {
                 return false;
             }
-            else if (value.ToLower() == "cancelled" || value.ToLower() == "error" || value.ToLower() == "local-bye" ||
-                value.ToLower() == "rejected" || value.ToLower() == "replaced" || value.ToLower() == "remote-bye" ||
-                value.ToLower() == "timeout")
+            else if (string.Equals(value, "cancelled", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "error", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "local-bye", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "rejected", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "replaced", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "remote-bye", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "timeout", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -183,26 +193,37 @@ namespace SIPSorcery.SIP
             }
             else
             {
-                string trimmedValue = value.Trim().ToLower();
-                switch (trimmedValue)
+                var trimmedValue = value.AsSpan().Trim();
+                if (trimmedValue.Equals("cancelled", StringComparison.OrdinalIgnoreCase))
                 {
-                    case "cancelled":
-                        return SIPEventDialogStateEvent.Cancelled;
-                    case "error":
-                        return SIPEventDialogStateEvent.Error;
-                    case "local-bye":
-                        return SIPEventDialogStateEvent.LocalBye;
-                    case "rejected":
-                        return SIPEventDialogStateEvent.Rejected;
-                    case "replaced":
-                        return SIPEventDialogStateEvent.Replaced;
-                    case "remote-bye":
-                        return SIPEventDialogStateEvent.RemoteBye;
-                    case "timeout":
-                        return SIPEventDialogStateEvent.Timeout;
-                    default:
-                        throw new ArgumentException("The value is not valid for a SIPEventDialogStateEvent.");
+                    return SIPEventDialogStateEvent.Cancelled;
                 }
+                else if (trimmedValue.Equals("error", StringComparison.OrdinalIgnoreCase))
+                {
+                    return SIPEventDialogStateEvent.Error;
+                }
+                else if (trimmedValue.Equals("local-bye", StringComparison.OrdinalIgnoreCase))
+                {
+                    return SIPEventDialogStateEvent.LocalBye;
+                }
+                else if (trimmedValue.Equals("rejected", StringComparison.OrdinalIgnoreCase))
+                {
+                    return SIPEventDialogStateEvent.Rejected;
+                }
+                else if (trimmedValue.Equals("replaced", StringComparison.OrdinalIgnoreCase))
+                {
+                    return SIPEventDialogStateEvent.Replaced;
+                }
+                else if (trimmedValue.Equals("remote-bye", StringComparison.OrdinalIgnoreCase))
+                {
+                    return SIPEventDialogStateEvent.RemoteBye;
+                }
+                else if (trimmedValue.Equals("timeout", StringComparison.OrdinalIgnoreCase))
+                {
+                    return SIPEventDialogStateEvent.Timeout;
+                }
+
+                throw new ArgumentException("The value is not valid for a SIPEventDialogStateEvent.");
             }
         }
 

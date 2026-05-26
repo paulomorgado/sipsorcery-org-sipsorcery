@@ -478,7 +478,7 @@ namespace SIPSorceryMedia.Windows
             var vidCapDevices = await DeviceInformation.FindAllAsync(DeviceClass.VideoCapture);
             foreach (var vidCapDevice in vidCapDevices)
             {
-                if(vidCapDevice.Name.ToLower() == deviceName.ToLower())
+                if(string.Equals(vidCapDevice.Name, deviceName, StringComparison.OrdinalIgnoreCase))
                 {
                     var mediaCaptureSettings = new MediaCaptureInitializationSettings()
                     {

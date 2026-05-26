@@ -42,9 +42,7 @@ namespace SIPSorceryMedia.FFmpeg
             string inputFormat = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dshow"
                                     : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "v4l2"
                                     : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "avfoundation"
-                                    : throw new NotSupportedException($"Cannot find adequate input format" +
-                                                $" - OSArchitecture:[{RuntimeInformation.OSArchitecture}]" +
-                                                $" - OSDescription:[{RuntimeInformation.OSDescription}]");
+                                    : throw new NotSupportedException($"Cannot find adequate input format - OSArchitecture:[{RuntimeInformation.OSArchitecture}] - OSDescription:[{RuntimeInformation.OSDescription}]");
 
             var _aVInputFormat = ffmpeg.av_find_input_format(inputFormat);
 

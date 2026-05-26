@@ -171,13 +171,13 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
         {
             if (Log.DebugEnabled)
             {
-                Log.Debug("DTLS client raised alert: " + AlertLevel.GetText(alertLevel) + ", " + AlertDescription.GetText(alertDescription));
+                Log.Debug($"DTLS client raised alert: {AlertLevel.GetText(alertLevel)}, {AlertDescription.GetText(alertDescription)}");
             }
             if (message != null)
             {
                 if (Log.DebugEnabled)
                 {
-                    Log.Debug("> " + message);
+                    Log.Debug($"> {message}");
                 }
             }
             if (cause != null)
@@ -193,7 +193,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
         {
             if (Log.DebugEnabled)
             {
-                Log.Debug("DTLS client received alert: " + AlertLevel.GetText(level) + ", " + AlertDescription.GetText(alertDescription));
+                Log.Debug($"DTLS client received alert: {AlertLevel.GetText(level)}, {AlertDescription.GetText(alertDescription)}");
             }
 
             TlsAlertTypesEnum alertType = TlsAlertTypesEnum.Unassigned;
@@ -217,7 +217,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
 
             if (Log.DebugEnabled)
             {
-                Log.Debug("DTLS client negotiated " + serverVersion);
+                Log.Debug($"DTLS client negotiated {serverVersion}");
             }
         }
 
@@ -235,7 +235,7 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
             {
                 if (Log.DebugEnabled)
                 {
-                    Log.Debug("Client ALPN: " + protocolName.GetUtf8Decoding());
+                    Log.Debug($"Client ALPN: {protocolName.GetUtf8Decoding()}");
                 }
             }
 
@@ -251,14 +251,14 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
                     {
                         if (Log.DebugEnabled)
                         {
-                            Log.Debug("Client resumed session: " + hex);
+                            Log.Debug($"Client resumed session: {hex}");
                         }
                     }
                     else
                     {
                         if (Log.DebugEnabled)
                         {
-                            Log.Debug("Client established session: " + hex);
+                            Log.Debug($"Client established session: {hex}");
                         }
                     }
 
@@ -270,14 +270,14 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
                 {
                     if (Log.DebugEnabled)
                     {
-                        Log.Debug("Client 'tls-server-end-point': " + ToHexString(tlsServerEndPoint));
+                        Log.Debug($"Client 'tls-server-end-point': {ToHexString(tlsServerEndPoint)}");
                     }
                 }
 
                 byte[] tlsUnique = m_context.ExportChannelBinding(ChannelBinding.tls_unique);
                 if (Log.DebugEnabled)
                 {
-                    Log.Debug("Client 'tls-unique': " + ToHexString(tlsUnique));
+                    Log.Debug($"Client 'tls-unique': {ToHexString(tlsUnique)}");
                 }
             }
 
@@ -326,14 +326,14 @@ namespace SIPSorcery.Net.SharpSRTP.DTLS
 
                 if (Log.DebugEnabled)
                 {
-                    Log.Debug("DTLS client received server certificate chain of length " + chain.Length);
+                    Log.Debug($"DTLS client received server certificate chain of length {chain.Length}");
                 }
                 for (int i = 0; i != chain.Length; i++)
                 {
                     X509CertificateStructure entry = X509CertificateStructure.GetInstance(chain[i].GetEncoded());
                     if (Log.DebugEnabled)
                     {
-                        Log.Debug("DTLS client fingerprint:SHA-256 " + DtlsCertificateUtils.Fingerprint(entry) + " (" + entry.Subject + ")");
+                        Log.Debug($"DTLS client fingerprint:SHA-256 {DtlsCertificateUtils.Fingerprint(entry)} ({entry.Subject})");
                     }
                 }
 

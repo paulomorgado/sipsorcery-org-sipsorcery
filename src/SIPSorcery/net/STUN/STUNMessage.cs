@@ -200,11 +200,11 @@ namespace SIPSorcery.Net
 
         public new string ToString()
         {
-            string messageDescr = "STUN Message: " + Header.MessageType.ToString() + ", length=" + Header.MessageLength;
+            string messageDescr = $"STUN Message: {Header.MessageType.ToString()}, length={Header.MessageLength}";
 
             foreach (STUNAttribute attribute in Attributes)
             {
-                messageDescr += "\n " + attribute.ToString();
+                messageDescr += $"\n {attribute.ToString()}";
             }
 
             return messageDescr;

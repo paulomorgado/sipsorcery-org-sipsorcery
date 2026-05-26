@@ -147,7 +147,7 @@ namespace SIPSorcery.Net
 
             if (!urlMatch.Success)
             {
-                throw new ApplicationException("The URL provided to the RTSP client was not recognised, " + url + ".");
+                throw new ApplicationException($"The URL provided to the RTSP client was not recognised, {url}.");
             }
             else
             {
@@ -172,7 +172,7 @@ namespace SIPSorcery.Net
 
                 RTSPRequest rtspRequest = new RTSPRequest(RTSPMethodsEnum.SETUP, url);
                 RTSPHeader rtspHeader = new RTSPHeader(_cseq++, null);
-                rtspHeader.Transport = new RTSPTransportHeader() { ClientRTPPortRange = _rtspSession.RTPPort + "-" + _rtspSession.ControlPort };
+                rtspHeader.Transport = new RTSPTransportHeader() { ClientRTPPortRange = $"{_rtspSession.RTPPort}-{_rtspSession.ControlPort}" };
                 rtspRequest.Header = rtspHeader;
                 string rtspReqStr = rtspRequest.ToString();
 
@@ -212,7 +212,7 @@ namespace SIPSorcery.Net
                         else
                         {
                             logger.LogWarning("RTSP Response received to SETUP: " + setupResponse.Status + ".");
-                            throw new ApplicationException("An error response of " + setupResponse.Status + " was received for an RTSP setup request.");
+                            throw new ApplicationException($"An error response of {setupResponse.Status} was received for an RTSP setup request.");
                         }
                     }
                 }
@@ -392,7 +392,7 @@ namespace SIPSorcery.Net
                                 }
 
                                 var abbrevURL = (_url.Length <= 50) ? _url : _url.Substring(0, 50);
-                                string rtpTrackingText = String.Format("Url: {0}\r\nRcvd At: {1}\r\nSeq Num: {2}\r\nTS: {3}\r\nPayoad: {4}\r\nFrame Size: {5}\r\nBW: {6}\r\nFrame Rate: {7}", abbrevURL, DateTime.Now.ToString("HH:mm:ss:fff"), rtpPacket.Header.SequenceNumber, rtpPacket.Header.Timestamp, ((SDPMediaFormatsEnum)rtpPacket.Header.PayloadType).ToString(), _lastFrameSize + " bytes", _lastBWCalc.ToString("0.#") + "bps", _lastFrameRate.ToString("0.##") + "fps");
+                                string rtpTrackingText = $"Url: {abbrevURL}\r\nRcvd At: {DateTime.Now:HH:mm:ss:fff}\r\nSeq Num: {rtpPacket.Header.SequenceNumber}\r\nTS: {rtpPacket.Header.Timestamp}\r\nPayoad: {(SDPMediaFormatsEnum)rtpPacket.Header.PayloadType}\r\nFrame Size: {_lastFrameSize} bytes\r\nBW: {_lastBWCalc:0.#}bps\r\nFrame Rate: {_lastFrameRate:0.##}fps";
                                 _rtpTrackingAction(rtpTrackingText);
                             }
 

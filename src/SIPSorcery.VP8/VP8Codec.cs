@@ -155,7 +155,7 @@ namespace Vpx.Net
                     // The foundation encoder requires multiples of 16 — no
                     // padding/cropping support yet.
                     throw new NotSupportedException(
-                        "Width and height must be positive multiples of 16. Got " + width + "x" + height + ".");
+                        $"Width and height must be positive multiples of 16. Got {width}x{height}.");
                 }
 
                 // Convert the input sample into planar I420.
@@ -168,8 +168,7 @@ namespace Vpx.Net
                 if (i420.Length != ySize + 2 * cSize)
                 {
                     throw new ArgumentException(
-                        "I420 buffer length " + i420.Length + " does not match expected " +
-                        (ySize + 2 * cSize) + " for " + width + "x" + height + ".");
+                        $"I420 buffer length {i420.Length} does not match expected {ySize + 2 * cSize} for {width}x{height}.");
                 }
 
                 if (_srcY == null || _srcY.Length < ySize) { _srcY = new byte[ySize]; }
