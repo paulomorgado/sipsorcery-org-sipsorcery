@@ -60,7 +60,7 @@ public class VideoBitmapSource : IVideoSource, IDisposable
     /// <summary>
     /// Unencoded test pattern samples.
     /// </summary>
-    public event RawVideoSampleDelegate OnVideoSourceRawSample = delegate { };
+    public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample = delegate { };
 
 #pragma warning disable CS0067
     public event RawVideoSampleFasterDelegate OnVideoSourceRawSampleFaster = delegate { };
@@ -181,13 +181,13 @@ public class VideoBitmapSource : IVideoSource, IDisposable
     {
         lock (_sendTimer)
         {
-            if (!_isClosed && (OnVideoSourceRawSample != null || OnVideoSourceEncodedSample != null))
+            if (!_isClosed && (OnVideoSourceRawSpanSample != null || OnVideoSourceEncodedSample != null))
             {
                 _frameCount++;
 
-                if (OnVideoSourceRawSample != null && _bgrBuffer != null)
+                if (OnVideoSourceRawSpanSample != null && _bgrBuffer != null)
                 {
-                    OnVideoSourceRawSample?.Invoke((uint)_frameSpacing, _bitmapWidth, _bitmapHeight, _bgrBuffer, VideoPixelFormatsEnum.Bgr);
+                    OnVideoSourceRawSpanSample?.Invoke((uint)_frameSpacing, _bitmapWidth, _bitmapHeight, _bgrBuffer, VideoPixelFormatsEnum.Bgr);
                 }
 
                 if (_videoEncoder != null && OnVideoSourceEncodedSample != null && _i420Buffer != null && !_formatManager.SelectedFormat.IsEmpty())

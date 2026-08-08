@@ -84,8 +84,9 @@ namespace SIPSorceryMedia.Windows
         /// <summary>
         /// Obsolete. Use the <cref="OnAudioSourceEncodedSample"/> event instead.
         /// </summary>
+#pragma warning disable CS0618 // Waiting for refactoring
         public event EncodedSampleDelegate OnAudioSourceEncodedSample;
-
+#pragma warning restore CS0618 // Waiting for refactoring
         /// <summary>
         /// Event handler for when an encoded audio frame is ready to be sent to the RTP transport layer.
         /// The sample contained in this event is already encoded with the chosen audio format (codec) and ready for transmission.

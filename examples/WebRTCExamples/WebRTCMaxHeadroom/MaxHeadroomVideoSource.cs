@@ -159,7 +159,7 @@ namespace demo
             return band[_visemeRotation++ % band.Length];
         }
 
-        public event RawVideoSampleDelegate OnVideoSourceRawSample;
+        public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
         public event SourceErrorDelegate OnVideoSourceError;
 
@@ -228,7 +228,7 @@ namespace demo
 
         private void RenderFrame(object state)
         {
-            bool hasRawSubscribers = OnVideoSourceRawSample != null;
+            bool hasRawSubscribers = OnVideoSourceRawSpanSample != null;
             bool hasEncodedSubscribers = _videoEncoder != null && OnVideoSourceEncodedSample != null && !_formatManager.SelectedFormat.IsEmpty();
 
             if (_isClosed || _isPaused || _faulted || (!hasRawSubscribers && !hasEncodedSubscribers))
@@ -248,7 +248,7 @@ namespace demo
 
                 BgraToBgr(_bitmap.GetPixelSpan(), _bgrBuffer);
 
-                OnVideoSourceRawSample?.Invoke((uint)_frameSpacingMs, WIDTH, HEIGHT, _bgrBuffer, VideoPixelFormatsEnum.Bgr);
+                OnVideoSourceRawSpanSample?.Invoke((uint)_frameSpacingMs, WIDTH, HEIGHT, _bgrBuffer, VideoPixelFormatsEnum.Bgr);
 
                 if (hasEncodedSubscribers)
                 {

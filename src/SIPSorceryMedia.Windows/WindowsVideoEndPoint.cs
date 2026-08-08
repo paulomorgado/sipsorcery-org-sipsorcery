@@ -82,14 +82,16 @@ namespace SIPSorceryMedia.Windows
         /// <summary>
         /// This event is fired when local video samples are available. The samples
         /// are for applications that wish to display the local video stream. The 
-        /// <seealso cref="OnVideoSourceEncodedSample"/> event is fired after the sample
+        /// <seealso cref="OnVideoSourceEncodedSampleSpan"/> event is fired after the sample
         /// has been encoded and is ready for transmission.
         /// </summary>
+        public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
         public event RawVideoSampleDelegate OnVideoSourceRawSample;
 
 #pragma warning disable 0067
         /// <summary>
-        /// Event Not used in this component - use instead <see cref="OnVideoSourceRawSample"/>
+        /// Event Not used in this component - use instead <see cref="OnVideoSourceRawSpanSample"/>
         /// </summary>
         public event RawVideoSampleFasterDelegate OnVideoSourceRawSampleFaster;
 #pragma warning restore 0067
@@ -97,6 +99,8 @@ namespace SIPSorceryMedia.Windows
         /// <summary>
         /// This event will be fired whenever a video sample is encoded and is ready to transmit to the remote party.
         /// </summary>
+        public event EncodedSampleSpanDelegate OnVideoSourceEncodedSampleSpan;
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
 
         /// <summary>
@@ -533,7 +537,7 @@ namespace SIPSorceryMedia.Windows
         {
             if (!_isClosed)
             {
-                if (!_videoFormatManager.SelectedFormat.IsEmpty() && (OnVideoSourceEncodedSample != null || OnVideoSourceRawSample != null))
+                if (!_videoFormatManager.SelectedFormat.IsEmpty() && (OnVideoSourceEncodedSample != null || OnVideoSourceRawSpanSample != null))
                 {
                     using (var mediaFrameReference = sender.TryAcquireLatestFrame())
                     {
@@ -591,7 +595,7 @@ namespace SIPSorceryMedia.Windows
                                             }
                                         }
 
-                                        if (OnVideoSourceRawSample != null)
+                                        if (OnVideoSourceRawSpanSample != null)
                                         {
                                             uint frameSpacing = 0;
                                             if (_lastFrameAt != DateTime.MinValue)
@@ -602,7 +606,7 @@ namespace SIPSorceryMedia.Windows
                                             using var bufferWriter = new ArrayPoolBufferWriter<byte>();
                                             PixelConverter.NV12toBGR(bufferWriter, nv12Buffer.AsSpan(), width, height, width * 3);
 
-                                            OnVideoSourceRawSample(frameSpacing, width, height, bufferWriter.WrittenSpan, VideoPixelFormatsEnum.Bgr);
+                                            OnVideoSourceRawSpanSample(frameSpacing, width, height, bufferWriter.WrittenSpan, VideoPixelFormatsEnum.Bgr);
                                         }
                                     }
                                 }
@@ -741,5 +745,10 @@ namespace SIPSorceryMedia.Windows
         public Task Pause() => PauseVideo();
 
         public Task Resume() => ResumeVideo();
+
+        public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

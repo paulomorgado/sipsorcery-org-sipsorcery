@@ -116,7 +116,7 @@ namespace demo
 
             #region Connect the video frames generate from the sink and source to the Windows form.
 
-            testPattern.OnVideoSourceRawSample += (durationMilliseconds, width, height, sample, pixelFormat) =>
+            testPattern.OnVideoSourceRawSpanSample += (durationMilliseconds, width, height, sample, pixelFormat) =>
             {
                 if (_isFormActivated)
                 {

@@ -15,9 +15,13 @@
 // BDS BY-NC-SA restriction, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+using System;
+
 namespace SIPSorceryMedia.Abstractions;
 
+[Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
 public delegate void EncodedSampleDelegate(uint durationRtpUnits, byte[] sample);
+public delegate void EncodedSampleSpanDelegate(uint durationRtpUnits, ReadOnlySpan<byte> sample);
 
 
 public delegate void SourceErrorDelegate(string errorMessage);

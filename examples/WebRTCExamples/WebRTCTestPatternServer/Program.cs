@@ -133,7 +133,7 @@ namespace demo
             pc.addTrack(track);
 
             //testPatternSource.OnVideoSourceRawSample += videoEndPoint.ExternalVideoSourceRawSample;
-            testPatternSource.OnVideoSourceRawSample += MesasureTestPatternSourceFrameRate;
+            testPatternSource.OnVideoSourceRawSpanSample += MesasureTestPatternSourceFrameRate;
             testPatternSource.OnVideoSourceEncodedSample += pc.SendVideo;
             pc.OnVideoFormatsNegotiated += (formats) => testPatternSource.SetVideoSourceFormat(formats.First());
 

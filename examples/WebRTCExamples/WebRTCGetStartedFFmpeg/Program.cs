@@ -153,7 +153,7 @@ class Program
         MediaStreamTrack audioTrack = new MediaStreamTrack(audioSource.GetAudioSourceFormats(), MediaStreamStatusEnum.SendRecv);
         pc.addTrack(audioTrack);
 
-        testPattern.OnVideoSourceRawSample += videoSource.ExternalVideoSourceRawSample;
+        testPattern.OnVideoSourceRawSpanSample += videoSource.ExternalVideoSourceRawSample;
         videoSource.OnVideoSourceEncodedSample += pc.SendVideo;
         audioSource.OnAudioSourceEncodedSample += pc.SendAudio;
 

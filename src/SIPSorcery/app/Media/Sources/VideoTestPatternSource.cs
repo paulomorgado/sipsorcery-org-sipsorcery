@@ -66,7 +66,7 @@ namespace SIPSorcery.Media
         /// <summary>
         /// Unencoded test pattern samples.
         /// </summary>
-        public event RawVideoSampleDelegate OnVideoSourceRawSample;
+        public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
 
 #pragma warning disable CS0067
         public event RawVideoSampleFasterDelegate OnVideoSourceRawSampleFaster;
@@ -79,6 +79,7 @@ namespace SIPSorcery.Media
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
 
         public event SourceErrorDelegate OnVideoSourceError;
+        public event RawVideoSampleDelegate OnVideoSourceRawSample;
 
         public VideoTestPatternSource(IVideoEncoder encoder = null)
         {
@@ -117,8 +118,8 @@ namespace SIPSorcery.Media
 
         public void ForceKeyFrame() => _videoEncoder?.ForceKeyFrame();
         public bool HasEncodedVideoSubscribers() => OnVideoSourceEncodedSample != null;
-        
-        public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat) =>
+
+        public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat) =>
             throw new NotImplementedException("The test pattern video source does not offer any encoding services for external sources.");
         
         public void ExternalVideoSourceRawSampleFaster(uint durationMilliseconds, RawImage rawImage) =>
@@ -230,13 +231,13 @@ namespace SIPSorcery.Media
         {
             lock (_sendTestPatternTimer)
             {
-                if (!_isClosed && (OnVideoSourceRawSample != null || OnVideoSourceEncodedSample != null))
+                if (!_isClosed && (OnVideoSourceRawSpanSample != null || OnVideoSourceEncodedSample != null))
                 {
                     _frameCount++;
 
                     StampI420Buffer(_testI420Buffer, TEST_PATTERN_WIDTH, TEST_PATTERN_HEIGHT, _frameCount);
 
-                    if (OnVideoSourceRawSample != null)
+                    if (OnVideoSourceRawSpanSample != null)
                     {
                         GenerateRawSample(TEST_PATTERN_WIDTH, TEST_PATTERN_HEIGHT, _testI420Buffer);
                     }
@@ -267,7 +268,7 @@ namespace SIPSorcery.Media
         }
 
         /// <summary>
-        /// Consumers subscribing to the <seealso cref="OnVideoSourceRawSample"/> will most likely want bitmap samples.
+        /// Consumers subscribing to the <seealso cref="OnVideoSourceRawSpanSample"/> will most likely want bitmap samples.
         /// This method takes the I420 buffer for the test patten frame, converts it to BGR and fire the event.
         /// </summary>
         /// <param name="i420Buffer">The I420 buffer representing the test pattern.</param>
@@ -275,7 +276,7 @@ namespace SIPSorcery.Media
         {
             using var bufferWriter = new ArrayPoolBufferWriter<byte>();
             PixelConverter.I420toBGR(bufferWriter, i420Buffer.AsSpan(), width, height, out _);
-            OnVideoSourceRawSample?.Invoke((uint)_frameSpacing, width, height, bufferWriter.WrittenSpan.ToArray(), VideoPixelFormatsEnum.Bgr);
+            OnVideoSourceRawSpanSample?.Invoke((uint)_frameSpacing, width, height, bufferWriter.WrittenSpan.ToArray(), VideoPixelFormatsEnum.Bgr);
         }
 
         /// <summary>
@@ -302,6 +303,11 @@ namespace SIPSorcery.Media
             _isClosed = true;
             _sendTestPatternTimer?.Dispose();
             _videoEncoder?.Dispose();
+        }
+
+        public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat)
+        {
+            throw new NotImplementedException();
         }
     }
 }

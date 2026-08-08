@@ -1,11 +1,14 @@
-﻿using FFmpeg.AutoGen;
-using Microsoft.Extensions.Logging;
-using SIPSorceryMedia.Abstractions;
-using System;
+﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance.Buffers;
+using FFmpeg.AutoGen;
+using Microsoft.Extensions.Logging;
+using SIPSorceryMedia.Abstractions;
 
 namespace SIPSorceryMedia.FFmpeg
 {
@@ -18,8 +21,8 @@ namespace SIPSorceryMedia.FFmpeg
         private const string DEFAULT_LIBVPX_REALTIME_CPU_USED = "5";
 
         /// <summary>
-        /// The threshold frame rate at which to use a key frame rate of 1 (every frame is a key frame).
-        /// This is to avoid the encoder lagging behind when the frame rate is very low.
+        /// The threshold frame rate at which to use a key frame rate of 1 (every frame is a key frame). This is to
+        /// avoid the encoder lagging behind when the frame rate is very low.
         /// </summary>
         private const int ALL_KEY_FRAMES_FPS_THRESHOLD = 5;
 
@@ -76,23 +79,65 @@ namespace SIPSorceryMedia.FFmpeg
             _HwDeviceType = HWDeviceType;
         }
 
-        public byte[]? EncodeVideo(int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        public byte[]? EncodeVideo(int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
-            fixed (byte* pSample = sample)
+            using var output = new ArrayPoolBufferWriter<byte>();
+            if (EncodeVideo(output, width, height, sample, pixelFormat, codec))
             {
-                return EncodeVideo(width, height, pSample, pixelFormat, codec);
+                return output.WrittenSpan.ToArray();
+            }
+            else
+            {
+                return null;
             }
         }
 
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
         public byte[]? EncodeVideoFaster(RawImage rawImage, VideoCodecsEnum codec)
         {
-            byte* pSample = (byte*)rawImage.Sample;
-            return EncodeVideo(rawImage.Width, rawImage.Height, pSample, rawImage.PixelFormat, codec);
+            using var output = new ArrayPoolBufferWriter<byte>();
+            if (EncodeVideoFaster(output, rawImage, codec))
+            {
+                return output.WrittenSpan.ToArray();
+            }
+            else
+            {
+                return null;
+            }
         }
 
+        public bool EncodeVideoFaster(IBufferWriter<byte> output, RawImage rawImage, VideoCodecsEnum codec)
+        {
+            var pSample = (byte*)rawImage.Sample;
+            return EncodeVideo(output, rawImage.Width, rawImage.Height, pSample, rawImage.PixelFormat, codec);
+        }
+
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
         private byte[]? EncodeVideo(int width, int height, byte* sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
-            AVCodecID? codecID = FFmpegConvert.GetAVCodecID(codec);
+            using var output = new ArrayPoolBufferWriter<byte>();
+            if (EncodeVideo(output, width, height, sample, pixelFormat, codec))
+            {
+                return output.WrittenSpan.ToArray();
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public bool EncodeVideo(IBufferWriter<byte> output, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
+        {
+            fixed (byte* pSample = sample)
+            {
+                return EncodeVideo(output, width, height, pSample, pixelFormat, codec);
+            }
+        }
+
+        public bool EncodeVideo(IBufferWriter<byte> output, int width, int height, byte* sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
+        {
+            var codecID = FFmpegConvert.GetAVCodecID(codec);
 
             if (codecID == null)
             {
@@ -104,7 +149,7 @@ namespace SIPSorceryMedia.FFmpeg
                 throw new NotImplementedException($"No matching FFmpeg pixel format was found for video pixel format {pixelFormat}.");
             }
 
-            return Encode(codecID.Value, sample, width, height, Helper.DEFAULT_VIDEO_FRAME_RATE, false, avPixelFormat);
+            return Encode(output, codecID.Value, sample, width, height, Helper.DEFAULT_VIDEO_FRAME_RATE, false, avPixelFormat);
         }
 
         public void ForceKeyFrame()
@@ -112,29 +157,46 @@ namespace SIPSorceryMedia.FFmpeg
             _forceKeyFrame = true;
         }
 
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
         public IEnumerable<RawImage> DecodeVideoFaster(byte[] encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
-            AVCodecID? codecID = FFmpegConvert.GetAVCodecID(codec);
+            return DecodeVideoFaster(encodedSample.AsSpan(), pixelFormat, codec);
+        }
+
+        public IEnumerable<RawImage> DecodeVideoFaster(ReadOnlySpan<byte> encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
+        {
+            var codecID = FFmpegConvert.GetAVCodecID(codec);
             if (codecID == null)
             {
                 throw new NotImplementedException($"Codec {codec} is not supported by the FFmpeg video decoder.");
             }
 
-            var decodedFrames = DecodeFaster(codecID.Value, encodedSample, out int width, out int height);
+            var decodedFrames = DecodeFaster(codecID.Value, encodedSample, out var width, out var height);
             if (decodedFrames != null && decodedFrames.Count > 0)
             {
                 return decodedFrames;
             }
 
-            return new List<RawImage>();
+            return Enumerable.Empty<RawImage>();
         }
 
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
         public IEnumerable<VideoSample> DecodeVideo(byte[] encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
+            return DecodeVideo(encodedSample.AsSpan(), pixelFormat, codec);
+        }
+
+        public IEnumerable<VideoSample> DecodeVideo(ReadOnlySpan<byte> encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
+        {
             var rawImageList = DecodeVideoFaster(encodedSample, pixelFormat, codec);
-            foreach (var rawImage in rawImageList)
+            return DecodeVideoCore(rawImageList);
+
+            static IEnumerable<VideoSample> DecodeVideoCore(IEnumerable<RawImage> rawImageList)
             {
-                yield return new VideoSample { Width = (uint)rawImage.Width, Height = (uint)rawImage.Height, Sample = rawImage.GetBuffer() };
+                foreach (var rawImage in rawImageList)
+                {
+                    yield return new VideoSample { Width = (uint)rawImage.Width, Height = (uint)rawImage.Height, Sample = rawImage.GetBuffer() };
+                }
             }
         }
 
@@ -434,7 +496,7 @@ namespace SIPSorceryMedia.FFmpeg
 
             ResetEncoder();
         }
-        
+
         public void SetBitrate(long? avgBitrate, int? toleranceBitrate, long? minBitrate, long? maxBitrate)
         {
             _bit_rate = avgBitrate;
@@ -475,7 +537,7 @@ namespace SIPSorceryMedia.FFmpeg
                     {
                         ffmpeg.avcodec_free_context(pCtx);
                     }
-                    
+
                     UnsafeReset();
                 }
             }
@@ -538,7 +600,8 @@ namespace SIPSorceryMedia.FFmpeg
                     {
                         logger.LogWarning("Failed to set decoder option \"{key}\"=\"{val}\", Skipping this option. {msg}", option.Key, option.Value, excp.Message);
                     }
-                };
+                }
+                ;
 
                 ffmpeg.avcodec_open2(_decoderContext, codec, null).ThrowExceptionIfError();
 
@@ -554,7 +617,7 @@ namespace SIPSorceryMedia.FFmpeg
 
         public AVFrame MakeFrame(byte* sample, int width, int height)
         {
-            AVFrame avFrame = new AVFrame
+            var avFrame = new AVFrame
             {
                 width = width,
                 height = height,
@@ -573,6 +636,14 @@ namespace SIPSorceryMedia.FFmpeg
             return avFrame;
         }
 
+        public AVFrame MakeFrame(ReadOnlySpan<byte> sample, int width, int height)
+        {
+            fixed (byte* src = sample)
+            {
+                return MakeFrame(src, width, height);
+            }
+        }
+
         private bool CheckDropFrame()
         {
             if (_frameTimer == null)
@@ -582,9 +653,9 @@ namespace SIPSorceryMedia.FFmpeg
             }
             // Calculate frame interval in ticks based on Stopwatch frequency.
             // frameIntervalMs = 1000 / framerate, convert ms to ticks: frameIntervalTicks = frameIntervalMs * Stopwatch.Frequency / 1000
-            long frameIntervalTicks = (long)(1000.0 / _encoderContext->framerate.num * Stopwatch.Frequency / 1000);
+            var frameIntervalTicks = (long)(1000.0 / _encoderContext->framerate.num * Stopwatch.Frequency / 1000);
 
-            long nowTicks = _frameTimer.ElapsedTicks;
+            var nowTicks = _frameTimer.ElapsedTicks;
             if (_lastFrameTicks != 0)
             {
                 if (nowTicks - _lastFrameTicks < frameIntervalTicks)
@@ -598,7 +669,22 @@ namespace SIPSorceryMedia.FFmpeg
             return false;
         }
 
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
         public byte[]? Encode(AVCodecID codecID, byte* sample, int width, int height, int fps, bool keyFrame = false, AVPixelFormat pixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P)
+        {
+            using var output = new ArrayPoolBufferWriter<byte>();
+            if (Encode(output, codecID, sample, width, height, fps, keyFrame, pixelFormat))
+            {
+                return output.WrittenSpan.ToArray();
+            }
+            else
+            {
+                return null;
+            }
+
+        }
+
+        public bool Encode(IBufferWriter<byte> output, AVCodecID codecID, byte* sample, int width, int height, int fps, bool keyFrame = false, AVPixelFormat pixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P)
         {
             if (!_isDisposed)
             {
@@ -616,7 +702,7 @@ namespace SIPSorceryMedia.FFmpeg
                             _encoderContext->height = height;
                         }
 
-                        AVFrame avFrame = new AVFrame();
+                        var avFrame = new AVFrame();
 
                         if (pixelFormat == AVPixelFormat.AV_PIX_FMT_YUV420P)
                         {
@@ -638,13 +724,28 @@ namespace SIPSorceryMedia.FFmpeg
                             avFrame = _encoderPixelConverter.Convert(sample);
                         }
 
-                        return Encode(codecID, &avFrame, fps, keyFrame);
+                        Encode(output, codecID, &avFrame, fps, keyFrame);
+                        return true;
                     }
                     else
                     {
-                        return null;
+                        return false;
                     }
                 }
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        public byte[]? Encode(AVCodecID codecID, AVFrame* avFrame, int fps, bool keyFrame = false)
+        {
+            using var output = new ArrayPoolBufferWriter<byte>();
+            if (Encode(output, codecID, avFrame, fps, keyFrame))
+            {
+                return output.WrittenSpan.ToArray();
             }
             else
             {
@@ -652,17 +753,18 @@ namespace SIPSorceryMedia.FFmpeg
             }
         }
 
-        public byte[]? Encode(AVCodecID codecID, AVFrame* avFrame, int fps, bool keyFrame = false)
+        public bool Encode(IBufferWriter<byte> output, AVCodecID codecID, AVFrame* avFrame, int fps, bool keyFrame = false)
         {
             if (!_isDisposed)
             {
-                if (OnVideoEncoderStatistics != null && CheckDropFrame()) {
-                    return null;
+                if (OnVideoEncoderStatistics != null && CheckDropFrame())
+                {
+                    return false;
                 }
                 lock (_encoderLock)
                 {
-                    int width = avFrame->width;
-                    int height = avFrame->height;
+                    var width = avFrame->width;
+                    var height = avFrame->height;
 
                     if (!_isEncoderInitialised)
                     {
@@ -702,7 +804,7 @@ namespace SIPSorceryMedia.FFmpeg
                     try
                     {
                         ffmpeg.avcodec_send_frame(_encoderContext, avFrame).ThrowExceptionIfError();
-                        int error = ffmpeg.avcodec_receive_packet(_encoderContext, pPacket);
+                        var error = ffmpeg.avcodec_receive_packet(_encoderContext, pPacket);
 
                         if (error == 0)
                         {
@@ -712,26 +814,26 @@ namespace SIPSorceryMedia.FFmpeg
                             {
                                 // TODO: Work out how to use the FFmpeg H264 bit stream parser to extract the NALs.
                                 // Currently it's being done in the RTPSession class.
-                                byte[] arr = new byte[pPacket->size];
-                                Marshal.Copy((IntPtr)pPacket->data, arr, 0, pPacket->size);
-                                return arr;
+                                var packetSpan = new ReadOnlySpan<byte>((void*)pPacket->data, pPacket->size);
+                                output.Write(packetSpan);
+                                return true;
                             }
                             else
                             {
-                                byte[] arr = new byte[pPacket->size];
-                                Marshal.Copy((IntPtr)pPacket->data, arr, 0, pPacket->size);
-                                return arr;
+                                var packetSpan = new ReadOnlySpan<byte>((void*)pPacket->data, pPacket->size);
+                                output.Write(packetSpan);
+                                return true;
                             }
                         }
                         else if (error == ffmpeg.AVERROR(ffmpeg.EAGAIN))
                         {
                             logger.LogDebug("Video encoder needs more data.");
-                            return null;
+                            return false;
                         }
                         else
                         {
                             error.ThrowExceptionIfError();
-                            return null;
+                            return false;
                         }
                     }
                     finally
@@ -742,7 +844,7 @@ namespace SIPSorceryMedia.FFmpeg
             }
             else
             {
-                return null;
+                return false;
             }
         }
 
@@ -793,7 +895,7 @@ namespace SIPSorceryMedia.FFmpeg
                 _encoderContext->bit_rate = bitrate;
                 _encoderContext->framerate.num = fps;
                 _encoderContext->gop_size = Math.Max(5, fps * 2);
-                switch(_encoderContext->codec_id)
+                switch (_encoderContext->codec_id)
                 {
                     case AVCodecID.AV_CODEC_ID_VP8:
                         _encoderContext->rc_max_rate = (long)(_encoderContext->bit_rate * 1.2);
@@ -802,24 +904,30 @@ namespace SIPSorceryMedia.FFmpeg
                         _encoderContext->rc_buffer_size = (int)(_encoderContext->bit_rate * 1.5); // 1.5x target bitrate buffer
                         break;
                     case AVCodecID.AV_CODEC_ID_H264:
-                        
+
                         break;
                 }
             }
         }
 
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
         public List<RawImage>? DecodeFaster(AVCodecID codecID, byte[] buffer, out int width, out int height)
         {
-            if ((!_isDisposed) && (buffer != null))
+            return DecodeFaster(codecID, buffer.AsSpan(), out width, out height);
+        }
+
+        public List<RawImage>? DecodeFaster(AVCodecID codecID, ReadOnlySpan<byte> buffer, out int width, out int height)
+        {
+            if ((!_isDisposed) && (buffer.IsEmpty))
             {
                 lock (_decoderLock)
                 {
-                    AVPacket* packet = ffmpeg.av_packet_alloc();
+                    var packet = ffmpeg.av_packet_alloc();
 
+                    var paddedBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length + ffmpeg.AV_INPUT_BUFFER_PADDING_SIZE);
                     try
                     {
-                        var paddedBuffer = new byte[buffer.Length + ffmpeg.AV_INPUT_BUFFER_PADDING_SIZE];
-                        Buffer.BlockCopy(buffer, 0, paddedBuffer, 0, buffer.Length);
+                        buffer.CopyTo(paddedBuffer);
 
                         fixed (byte* pBuffer = paddedBuffer)
                         {
@@ -829,6 +937,7 @@ namespace SIPSorceryMedia.FFmpeg
                     }
                     finally
                     {
+                        ArrayPool<byte>.Shared.Return(paddedBuffer);
                         ffmpeg.av_packet_from_data(packet, (byte*)IntPtr.Zero, 0);
                         ffmpeg.av_packet_free(&packet);
                     }
@@ -862,7 +971,7 @@ namespace SIPSorceryMedia.FFmpeg
 
                 //TracePacket(packet, "trace_headers");
 
-                List<RawImage> rgbFrames = new List<RawImage>();
+                var rgbFrames = new List<RawImage>();
                 if (ffmpeg.avcodec_send_packet(_decoderContext, packet) < 0)
                 {
                     width = height = 0;
@@ -871,11 +980,11 @@ namespace SIPSorceryMedia.FFmpeg
 
                 ffmpeg.av_frame_unref(_frame);
                 ffmpeg.av_frame_unref(_gpuFrame);
-                int recvRes = ffmpeg.avcodec_receive_frame(_decoderContext, _frame);
+                var recvRes = ffmpeg.avcodec_receive_frame(_decoderContext, _frame);
 
                 while (recvRes == 0)
                 {
-                    AVFrame* decodedFrame = _frame;
+                    var decodedFrame = _frame;
                     if (_decoderContext->hw_device_ctx != null)
                     {
                         // If this is hw accelerated, the data in `frame` resides in the GPU memory
@@ -914,7 +1023,7 @@ namespace SIPSorceryMedia.FFmpeg
                     var frameI420 = _i420ToRgb.Convert(decodedFrame);
                     if ((frameI420->width != 0) && (frameI420->height != 0))
                     {
-                        RawImage imageRawSample = new RawImage
+                        var imageRawSample = new RawImage
                         {
                             Width = width,
                             Height = height,
@@ -1038,10 +1147,10 @@ namespace SIPSorceryMedia.FFmpeg
                 }
 
                 ResetEncoder();
-                
+
                 _negotiatedPixFmt = fmt;
 
-                    logger.LogTrace("Negotiated pixel format {fmt}", fmt);
+                logger.LogTrace("Negotiated pixel format {fmt}", fmt);
 
                 return ret;
             }
@@ -1050,7 +1159,7 @@ namespace SIPSorceryMedia.FFmpeg
         private static AVPixelFormat[] GetSupportedPixelFormats(AVCodecContext* codecContext, AVCodec* codec)
         {
             void* configs = null;
-            int configsCount = 0;
+            var configsCount = 0;
 
             ffmpeg.avcodec_get_supported_config(
                 codecContext,
@@ -1067,7 +1176,7 @@ namespace SIPSorceryMedia.FFmpeg
 
             var pixFmts = (AVPixelFormat*)configs;
             var result = new AVPixelFormat[configsCount];
-            for (int i = 0; i < configsCount; i++)
+            for (var i = 0; i < configsCount; i++)
             {
                 result[i] = pixFmts[i];
             }

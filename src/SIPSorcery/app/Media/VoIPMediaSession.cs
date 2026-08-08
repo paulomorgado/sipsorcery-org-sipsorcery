@@ -288,7 +288,7 @@ namespace SIPSorcery.Media
                 if (_videoTestPatternSource != null)
                 {
                     await _videoTestPatternSource.CloseVideo().ConfigureAwait(false);
-                    _videoTestPatternSource.OnVideoSourceRawSample -= Media.VideoSource.ExternalVideoSourceRawSample;
+                    _videoTestPatternSource.OnVideoSourceRawSpanSample -= Media.VideoSource.ExternalVideoSourceRawSample;
                 }
 
                 if (Media.AudioSource != null)

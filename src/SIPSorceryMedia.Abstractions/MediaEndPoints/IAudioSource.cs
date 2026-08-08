@@ -25,7 +25,9 @@ public delegate void RawAudioSampleDelegate(AudioSamplingRatesEnum samplingRate,
 
 public interface IAudioSource
 {
+#pragma warning disable CS0618 // Waiting for refactoring
     event EncodedSampleDelegate OnAudioSourceEncodedSample;
+#pragma warning restore CS0618 // Waiting for refactoring
 
     event Action<EncodedAudioFrame> OnAudioSourceEncodedFrameReady;
 

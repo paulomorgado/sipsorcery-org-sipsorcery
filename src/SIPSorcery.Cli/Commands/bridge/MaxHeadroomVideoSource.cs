@@ -127,7 +127,7 @@ namespace SIPSorcery.Cli.Commands.Bridge
             set => Volatile.Write(ref _audioLevelBits, BitConverter.SingleToInt32Bits(value < 0f ? 0f : value > 1f ? 1f : value));
         }
 
-        public event RawVideoSampleDelegate OnVideoSourceRawSample;
+        public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
         public event SourceErrorDelegate OnVideoSourceError;
 
@@ -206,7 +206,7 @@ namespace SIPSorcery.Cli.Commands.Bridge
             // timer firing and us taking the lock will have set it, so we bail before touching freed memory.
             lock (_renderLock)
             {
-                bool hasRawSubscribers = OnVideoSourceRawSample != null;
+                bool hasRawSubscribers = OnVideoSourceRawSpanSample != null;
                 bool hasEncodedSubscribers = _videoEncoder != null && OnVideoSourceEncodedSample != null && !_formatManager.SelectedFormat.IsEmpty();
 
                 if (_isClosed || _isPaused || _faulted || (!hasRawSubscribers && !hasEncodedSubscribers))
@@ -226,7 +226,7 @@ namespace SIPSorcery.Cli.Commands.Bridge
 
                     BgraToBgr(_bitmap.GetPixelSpan(), _bgrBuffer);
 
-                    OnVideoSourceRawSample?.Invoke((uint)_frameSpacingMs, WIDTH, HEIGHT, _bgrBuffer, VideoPixelFormatsEnum.Bgr);
+                    OnVideoSourceRawSpanSample?.Invoke((uint)_frameSpacingMs, WIDTH, HEIGHT, _bgrBuffer, VideoPixelFormatsEnum.Bgr);
 
                     if (hasEncodedSubscribers)
                     {

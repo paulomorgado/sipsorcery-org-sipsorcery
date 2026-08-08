@@ -331,7 +331,7 @@ namespace demo
                         };
                     }
 
-                    mediaEndPoints.VideoSource.OnVideoSourceRawSample += (durationMilliseconds, width, height, sample, pixelFormat) =>
+                    mediaEndPoints.VideoSource.OnVideoSourceRawSpanSample += (durationMilliseconds, width, height, sample, pixelFormat) =>
                     {
                         if (_isFormActivated)
                         {

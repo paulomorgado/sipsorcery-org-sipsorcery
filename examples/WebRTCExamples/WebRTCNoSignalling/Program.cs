@@ -112,7 +112,7 @@ namespace WebRTCServer
             MediaStreamTrack track = new MediaStreamTrack(windowsVideoEndPoint.GetVideoSourceFormats(), MediaStreamStatusEnum.SendOnly);
             peerConnection.addTrack(track);
 
-            testPatternSource.OnVideoSourceRawSample += windowsVideoEndPoint.ExternalVideoSourceRawSample;
+            testPatternSource.OnVideoSourceRawSpanSample += windowsVideoEndPoint.ExternalVideoSourceRawSample;
             windowsVideoEndPoint.OnVideoSourceEncodedSample += peerConnection.SendVideo;
 
             peerConnection.oniceconnectionstatechange += (state) => logger.LogDebug($"ICE connection state change {state}.");

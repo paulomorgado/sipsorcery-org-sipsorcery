@@ -72,7 +72,7 @@ public class WebRTCWorker : BackgroundService
 
         _testPatternSource = new VideoTestPatternSource();
         _videoEndPoint = new FFmpegVideoEndPoint();
-        _testPatternSource.OnVideoSourceRawSample += _videoEndPoint.ExternalVideoSourceRawSample;
+        _testPatternSource.OnVideoSourceRawSpanSample += _videoEndPoint.ExternalVideoSourceRawSample;
 
         _musicSource = new AudioExtrasSource(new AudioEncoder(),
             new AudioSourceOptions { AudioSource = AudioSourcesEnum.Music });

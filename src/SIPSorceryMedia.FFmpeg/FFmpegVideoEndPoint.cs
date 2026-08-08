@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
+using CommunityToolkit.HighPerformance.Buffers;
 using FFmpeg.AutoGen;
 using Microsoft.Extensions.Logging;
 using SIPSorceryMedia.Abstractions;
@@ -54,16 +55,19 @@ public class FFmpegVideoEndPoint : IVideoSource, IVideoSink, IDisposable
 
     // ---- Source (encode) events ----
 
+    public event EncodedSampleDelegate? OnVideoSourceEncodedSample;
     /// <summary>
-    /// Fired when a raw sample supplied via <see cref="ExternalVideoSourceRawSample"/> or
+    /// Fired when a raw sample supplied via <see cref="OnVideoSourceEncodedSampleSpan"/> or
     /// <see cref="ExternalVideoSourceRawSampleFaster"/> has been encoded and is ready to transmit.
     /// </summary>
-    public event EncodedSampleDelegate? OnVideoSourceEncodedSample;
+    public event EncodedSampleSpanDelegate? OnVideoSourceEncodedSampleSpan;
 
 #pragma warning disable CS0067
     // This endpoint only produces ENCODED video samples (it encodes raw input supplied via the
     // ExternalVideoSourceRawSample* methods). It never emits raw source samples or source errors.
+    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
     public event RawVideoSampleDelegate? OnVideoSourceRawSample;
+    public event RawSpanVideoSampleDelegate? OnVideoSourceRawSpanSample;
     public event RawVideoSampleFasterDelegate? OnVideoSourceRawSampleFaster;
     public event SourceErrorDelegate? OnVideoSourceError;
 #pragma warning restore CS0067
@@ -198,6 +202,10 @@ public class FFmpegVideoEndPoint : IVideoSource, IVideoSink, IDisposable
         return Task.CompletedTask;
     }
 
+    [Obsolete("This method is deprecated. Use the ReadOnlySpan<byte> variant instead.")]
+    public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat)
+        => ExternalVideoSourceRawSample(durationMilliseconds, width, height, sample.AsSpan(), pixelFormat);
+
     /// <summary>
     /// Encodes a raw video frame supplied by the application and raises <see cref="OnVideoSourceEncodedSample"/>
     /// with the result, ready for the RTP transport.
@@ -206,8 +214,9 @@ public class FFmpegVideoEndPoint : IVideoSource, IVideoSink, IDisposable
     {
         if (!_isClosed && OnVideoSourceEncodedSample != null)
         {
-            var encodedBuffer = _ffmpegEncoder.EncodeVideo(width, height, sample, pixelFormat, _videoFormatManager.SelectedFormat.Codec);
-            RaiseEncodedSample(durationMilliseconds, encodedBuffer);
+            using var encodedBuffer = new ArrayPoolBufferWriter<byte>();
+            _ = _ffmpegEncoder.EncodeVideo(encodedBuffer, width, height, sample, pixelFormat, _videoFormatManager.SelectedFormat.Codec);
+            RaiseEncodedSample(durationMilliseconds, encodedBuffer.WrittenSpan);
         }
     }
 
@@ -224,20 +233,24 @@ public class FFmpegVideoEndPoint : IVideoSource, IVideoSink, IDisposable
         }
     }
 
-    private void RaiseEncodedSample(uint durationMilliseconds, byte[]? encodedBuffer)
+    private void RaiseEncodedSample(uint durationMilliseconds, ReadOnlySpan<byte> encodedBuffer)
     {
-        if (encodedBuffer != null)
+        if (!encodedBuffer.IsEmpty)
         {
-            uint fps = (durationMilliseconds > 0) ? 1000 / durationMilliseconds : (uint)Helper.DEFAULT_VIDEO_FRAME_RATE;
+            var fps = (durationMilliseconds > 0) ? 1000 / durationMilliseconds : (uint)Helper.DEFAULT_VIDEO_FRAME_RATE;
             if (fps == 0)
             {
                 fps = 1;
             }
 
-            uint durationRtpTS = (uint)_videoFormatManager.SelectedFormat.ClockRate / fps;
+            var durationRtpTS = (uint)_videoFormatManager.SelectedFormat.ClockRate / fps;
 
             // Note the event handler can be removed while the encoding is in progress.
-            OnVideoSourceEncodedSample?.Invoke(durationRtpTS, encodedBuffer);
+            OnVideoSourceEncodedSampleSpan?.Invoke(durationRtpTS, encodedBuffer);
+            if (OnVideoSourceEncodedSample is { } onVideoSourceEncodedSample)
+            {
+                onVideoSourceEncodedSample.Invoke(durationRtpTS, encodedBuffer.ToArray());
+            }
         }
     }
 

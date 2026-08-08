@@ -38,7 +38,10 @@ namespace SIPSorceryMedia.FFmpeg
         public event SourceErrorDelegate? OnVideoSourceError;
 
 #pragma warning disable CS0067
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
         public event RawVideoSampleDelegate? OnVideoSourceRawSample;
+        public event RawSpanVideoSampleDelegate? OnVideoSourceRawSpanSample;
+        public event EncodedSampleSpanDelegate OnVideoSourceEncodedSampleSpan;
 #pragma warning restore CS0067
 
         public FFmpegVideoSource()
@@ -147,6 +150,7 @@ namespace SIPSorceryMedia.FFmpeg
         }
 
         public void ForceKeyFrame() => _forceKeyFrame = true;
+        public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat) => throw new NotImplementedException();
         public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat) => throw new NotImplementedException();
         public void ExternalVideoSourceRawSampleFaster(uint durationMilliseconds, RawImage rawImage) => throw new NotImplementedException();
         public bool HasEncodedVideoSubscribers() => OnVideoSourceEncodedSample != null;

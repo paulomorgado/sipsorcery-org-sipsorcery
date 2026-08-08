@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
+using CommunityToolkit.HighPerformance.Buffers;
 using Microsoft.Extensions.Logging;
 using SIPSorceryMedia.Abstractions;
 
@@ -43,12 +44,12 @@ namespace Vpx.Net
         /// This video source DOES NOT generate raw samples. Subscribe to the encoded samples event
         /// to get samples ready for passing to the RTP transport layer.
         /// </summary>
-        [Obsolete("This video source only generates encoded samples. No raw video samples will be supplied to this event.")]
-        public event RawVideoSampleDelegate OnVideoSourceRawSample { add { } remove { } }
+        public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample { add { } remove { } }
 
         /// <summary>
         /// This event will be fired whenever a video sample is encoded and is ready to transmit to the remote party.
         /// </summary>
+        [Obsolete("This video source only generates encoded samples. No raw video samples will be supplied to this event.")]
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
 
         /// <summary>
@@ -60,6 +61,8 @@ namespace Vpx.Net
         public event SourceErrorDelegate OnVideoSourceError;
         public event RawVideoSampleFasterDelegate OnVideoSourceRawSampleFaster;
         public event VideoSinkSampleDecodedFasterDelegate OnVideoSinkDecodedSampleFaster;
+        public event RawVideoSampleDelegate OnVideoSourceRawSample;
+        public event EncodedSampleSpanDelegate OnVideoSourceEncodedSampleSpan;
 #pragma warning restore CS0067
 
         /// <summary>
@@ -145,13 +148,16 @@ namespace Vpx.Net
             {
                 if (OnVideoSourceEncodedSample != null)
                 {
-                    var encodedBuffer = _vp8Codec.EncodeVideo(width, height, sample, pixelFormat, VideoCodecsEnum.VP8);
-
-                    if (encodedBuffer != null)
+                    using var encodedBuffer = new ArrayPoolBufferWriter<byte>();
+                    if (_vp8Codec.EncodeVideo(encodedBuffer, width, height, sample, pixelFormat, VideoCodecsEnum.VP8))
                     {
-                        uint fps = (durationMilliseconds > 0) ? 1000 / durationMilliseconds : DEFAULT_FRAMES_PER_SECOND;
-                        uint durationRtpTS = VIDEO_SAMPLING_RATE / fps;
-                        OnVideoSourceEncodedSample.Invoke(durationRtpTS, encodedBuffer);
+                        var fps = (durationMilliseconds > 0) ? 1000 / durationMilliseconds : DEFAULT_FRAMES_PER_SECOND;
+                        var durationRtpTS = VIDEO_SAMPLING_RATE / fps;
+                        OnVideoSourceEncodedSampleSpan.Invoke(durationRtpTS, encodedBuffer.WrittenSpan);
+                        if (OnVideoSourceEncodedSample is { } onVideoSourceEncodedSample)
+                        {
+                            onVideoSourceEncodedSample.Invoke(durationRtpTS, encodedBuffer.WrittenSpan.ToArray());
+                        }
                     }
                 }
             }
@@ -185,6 +191,11 @@ namespace Vpx.Net
         }
 
         public void ExternalVideoSourceRawSampleFaster(uint durationMilliseconds, RawImage rawImage)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat)
         {
             throw new NotImplementedException();
         }

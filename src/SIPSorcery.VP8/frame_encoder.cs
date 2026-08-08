@@ -93,7 +93,9 @@
  */
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using CommunityToolkit.HighPerformance.Buffers;
 
 namespace Vpx.Net
 {
@@ -270,19 +272,31 @@ namespace Vpx.Net
         // The keyframe UV mode tree has 3 internal nodes; probs are
         // vp8_kf_uv_mode_prob = { 142, 114, 183 }.
 
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        internal static byte[] EncodeKeyframeWithBuffers(byte[] srcY, byte[] srcU, byte[] srcV,
+            int width, int height, int qIndex, FrameEncoderBuffers buffers)
+        {
+            using var output = new ArrayPoolBufferWriter<byte>();
+            EncodeKeyframeWithBuffers(output, srcY, srcU, srcV, width, height, qIndex, buffers);
+            return output.WrittenSpan.ToArray();
+        }
+
         /// <summary>
-        /// Encode an I420 source frame (planar Y, U, V) as a VP8 keyframe
-        /// using DC_PRED for every macroblock and all features (segmentation,
-        /// loopfilter mode/ref deltas, multi-token-partition, etc.) off.
+        /// Encode an I420 source frame (planar Y, U, V) as a VP8 keyframe using DC_PRED for every macroblock and all
+        /// features (segmentation, loopfilter mode/ref deltas, multi-token-partition, etc.) off.
         /// </summary>
+        /// <param name="output">The buffer writer to receive the encoded VP8 frame bytes.</param>
         /// <param name="srcY">width * height luma bytes, raster order.</param>
         /// <param name="srcU">(width/2) * (height/2) chroma U.</param>
         /// <param name="srcV">(width/2) * (height/2) chroma V.</param>
         /// <param name="width">Frame width in pixels (multiple of 16).</param>
         /// <param name="height">Frame height in pixels (multiple of 16).</param>
         /// <param name="qIndex">VP8 base quantizer (0 = lossless-ish, 127 = very lossy).</param>
-        /// <returns>The encoded VP8 frame bytes.</returns>
-        internal static byte[] EncodeKeyframeWithBuffers(byte[] srcY, byte[] srcU, byte[] srcV,
+        /// <param name="buffers">
+        /// Per-thread reusable scratch + pool storage. Allocated lazily on first call and resized only when the frame
+        /// dimensions change.
+        /// </param>
+        internal static void EncodeKeyframeWithBuffers(IBufferWriter<byte> output, ReadOnlySpan<byte> srcY, ReadOnlySpan<byte> srcU, ReadOnlySpan<byte> srcV,
             int width, int height, int qIndex, FrameEncoderBuffers buffers)
         {
             if (buffers == null) throw new System.ArgumentNullException(nameof(buffers));
@@ -290,19 +304,19 @@ namespace Vpx.Net
                 throw new ArgumentException("width must be a positive multiple of 16", nameof(width));
             if (height <= 0 || height % 16 != 0)
                 throw new ArgumentException("height must be a positive multiple of 16", nameof(height));
-            if (srcY == null || srcY.Length != width * height)
+            if (srcY.Length != width * height)
                 throw new ArgumentException("srcY size mismatch");
             int chromaW = width / 2, chromaH = height / 2;
-            if (srcU == null || srcU.Length != chromaW * chromaH)
+            if (srcU.Length != chromaW * chromaH)
                 throw new ArgumentException("srcU size mismatch");
-            if (srcV == null || srcV.Length != chromaW * chromaH)
+            if (srcV.Length != chromaW * chromaH)
                 throw new ArgumentException("srcV size mismatch");
 
-            int mbCols = width / 16;
-            int mbRows = height / 16;
+            var mbCols = width / 16;
+            var mbRows = height / 16;
 
             // Build the quantizer for this Q index.
-            FrameQuantizer fq = quantizer_init.BuildForQIndex(qIndex);
+            var fq = quantizer_init.BuildForQIndex(qIndex);
 
             // Use the caller-supplied per-codec scratch buffers.
             var buf = buffers;
@@ -315,10 +329,10 @@ namespace Vpx.Net
                 BaseQindex = qIndex,
             };
 
-            byte[] outBuf = buf.OutBuf;
+            var outBuf = buf.OutBuf;
 
             // ----- Open the compressed first partition (header through refresh_entropy_probs) -----
-            BOOL_CODER bc0 = new BOOL_CODER();
+            var bc0 = new BOOL_CODER();
             int partitionStart;
             fixed (byte* p = outBuf)
             {
@@ -331,10 +345,10 @@ namespace Vpx.Net
             // saying "is this prob being updated?" and, if 1, an 8-bit
             // replacement. Foundation: write all-zero flags so the decoder
             // keeps default_coef_probs.
-            for (int t = 0; t < entropy.BLOCK_TYPES; t++)
-                for (int b = 0; b < entropy.COEF_BANDS; b++)
-                    for (int c = 0; c < entropy.PREV_COEF_CONTEXTS; c++)
-                        for (int n = 0; n < entropy.ENTROPY_NODES; n++)
+            for (var t = 0; t < entropy.BLOCK_TYPES; t++)
+                for (var b = 0; b < entropy.COEF_BANDS; b++)
+                    for (var c = 0; c < entropy.PREV_COEF_CONTEXTS; c++)
+                        for (var n = 0; n < entropy.ENTROPY_NODES; n++)
                             // Probability is the entry in vp8_coef_update_probs;
                             // we always write 0 so the actual prob doesn't
                             // change the boolean coder state much, but we
@@ -352,16 +366,16 @@ namespace Vpx.Net
             // context propagation happening in this pass. Bit-writing
             // happens in phase 2 below.
 
-            MbEncodeResult[] mbResults = buf.MbResults;
-            bool[] mbSkip = buf.MbSkip;
-            int skipTrueCount = 0;
-            int skipFalseCount = 0;
+            var mbResults = buf.MbResults;
+            var mbSkip = buf.MbSkip;
+            var skipTrueCount = 0;
+            var skipFalseCount = 0;
 
             // Reconstruction context buffers (per-row "above" cache;
             // per-MB "left" reused across MBs in a row).
-            byte[] aboveYRow = buf.AboveYRow;
-            byte[] aboveURow = buf.AboveURow;
-            byte[] aboveVRow = buf.AboveVRow;
+            var aboveYRow = buf.AboveYRow;
+            var aboveURow = buf.AboveURow;
+            var aboveVRow = buf.AboveVRow;
 
             // Frame-scope entropy contexts. The above row stores one
             // 9-slot context per MB column position (4 Y + 2 U + 2 V + 1
@@ -371,27 +385,27 @@ namespace Vpx.Net
             // array that persists across MBs in a row and is reset at
             // each row boundary (no wrap-around). C-array layout (flat,
             // row-major-ish): aboveCtx[mbCol * 9 + slot].
-            byte[] frameAboveCtx = buf.FrameAboveCtx;
+            var frameAboveCtx = buf.FrameAboveCtx;
             Array.Clear(frameAboveCtx, 0, mbCols * 9);
 
-            byte[] leftCtx = buf.LeftCtx;
-            byte[] aboveCtx = buf.AboveCtx;
-            byte[] mbY = buf.MbY;
-            byte[] mbU = buf.MbU;
-            byte[] mbV = buf.MbV;
-            byte[] aboveY = buf.AboveY;
-            byte[] aboveU = buf.AboveU;
-            byte[] aboveV = buf.AboveV;
-            byte[] leftY = buf.LeftY;
-            byte[] leftU = buf.LeftU;
-            byte[] leftV = buf.LeftV;
+            var leftCtx = buf.LeftCtx;
+            var aboveCtx = buf.AboveCtx;
+            var mbY = buf.MbY;
+            var mbU = buf.MbU;
+            var mbV = buf.MbV;
+            var aboveY = buf.AboveY;
+            var aboveU = buf.AboveU;
+            var aboveV = buf.AboveV;
+            var leftY = buf.LeftY;
+            var leftU = buf.LeftU;
+            var leftV = buf.LeftV;
 
-            for (int mbRow = 0; mbRow < mbRows; mbRow++)
+            for (var mbRow = 0; mbRow < mbRows; mbRow++)
             {
-                bool haveLeftNeighbour = false;
+                var haveLeftNeighbour = false;
                 Array.Clear(leftCtx, 0, 9);
 
-                for (int mbCol = 0; mbCol < mbCols; mbCol++)
+                for (var mbCol = 0; mbCol < mbCols; mbCol++)
                 {
                     // Slice the 16x16 + 8x8 + 8x8 source for this MB.
                     ExtractPlaneInto(srcY, width,  mbCol * 16, mbRow * 16, 16, 16, mbY);
@@ -399,7 +413,7 @@ namespace Vpx.Net
                     ExtractPlaneInto(srcV, chromaW, mbCol * 8,  mbRow * 8,  8, 8,  mbV);
 
                     // Slice the relevant 16-byte (resp 8-byte) above row.
-                    bool haveAbove = mbRow > 0;
+                    var haveAbove = mbRow > 0;
                     if (haveAbove)
                     {
                         ExtractRowInto(aboveYRow, mbCol * 16, 16, aboveY);
@@ -410,10 +424,10 @@ namespace Vpx.Net
                     // Pull this MB column's above context out of the
                     // frame-scope buffer; mb_encoder mutates it in place
                     // as it processes blocks, then we copy it back.
-                    int aboveBase = mbCol * 9;
-                    for (int s = 0; s < 9; s++) aboveCtx[s] = frameAboveCtx[aboveBase + s];
+                    var aboveBase = mbCol * 9;
+                    for (var s = 0; s < 9; s++) aboveCtx[s] = frameAboveCtx[aboveBase + s];
 
-                    int idx = mbRow * mbCols + mbCol;
+                    var idx = mbRow * mbCols + mbCol;
                     var pooled = mbResults[idx];
 
                     var r = mb_encoder.EncodeMacroblockDcPred(
@@ -442,13 +456,13 @@ namespace Vpx.Net
                     // case (see context update lines in mb_encoder.cs),
                     // so the encoder and decoder context state stay in
                     // sync without any extra reset on this side.
-                    bool skip = IsAllEob(r);
+                    var skip = IsAllEob(r);
                     mbSkip[idx] = skip;
                     if (skip) skipTrueCount++; else skipFalseCount++;
 
                     // The mutated aboveCtx is the new "above" for the MB
                     // immediately below this one (same column, next row).
-                    for (int s = 0; s < 9; s++) frameAboveCtx[aboveBase + s] = aboveCtx[s];
+                    for (var s = 0; s < 9; s++) frameAboveCtx[aboveBase + s] = aboveCtx[s];
 
                     // Update neighbour context for the next MB in this row
                     // (rightmost column of the MB's reconstruction) and for
@@ -481,21 +495,21 @@ namespace Vpx.Net
             // because (a) the per-MB cost is O(384 bytes) so trivial,
             // and (b) this lets PR 5's wire-up happen as a flip rather
             // than a behaviour change to EncodeKeyframe.
-            for (int mbRow = 0; mbRow < mbRows; mbRow++)
+            for (var mbRow = 0; mbRow < mbRows; mbRow++)
             {
-                for (int mbCol = 0; mbCol < mbCols; mbCol++)
+                for (var mbCol = 0; mbCol < mbCols; mbCol++)
                 {
                     var r = mbResults[mbRow * mbCols + mbCol];
 
-                    int yBase = (mbRow * 16) * width + (mbCol * 16);
-                    for (int row = 0; row < 16; row++)
+                    var yBase = (mbRow * 16) * width + (mbCol * 16);
+                    for (var row = 0; row < 16; row++)
                     {
                         Buffer.BlockCopy(r.ReconY, row * 16,
                             buf.LastFrameY, yBase + row * width, 16);
                     }
 
-                    int cBase = (mbRow * 8) * chromaW + (mbCol * 8);
-                    for (int row = 0; row < 8; row++)
+                    var cBase = (mbRow * 8) * chromaW + (mbCol * 8);
+                    for (var row = 0; row < 8; row++)
                     {
                         Buffer.BlockCopy(r.ReconU, row * 8,
                             buf.LastFrameU, cBase + row * chromaW, 8);
@@ -525,18 +539,18 @@ namespace Vpx.Net
             }
             else
             {
-                int total = skipFalseCount + skipTrueCount;
-                int p = skipFalseCount * 256 / total;
+                var total = skipFalseCount + skipTrueCount;
+                var p = skipFalseCount * 256 / total;
                 if (p < 1) p = 1;
                 if (p > 255) p = 255;
                 probSkipFalse = (byte)p;
             }
-            for (int b = 7; b >= 0; b--)
+            for (var b = 7; b >= 0; b--)
                 bitstream.vp8_write_bit(ref bc0, (probSkipFalse >> b) & 1);
 
             // ----- Phase 2b: per-MB skip flag + Y/UV mode trees -----
-            int totalMbsP2 = mbRows * mbCols;
-            for (int i = 0; i < totalMbsP2; i++)
+            var totalMbsP2 = mbRows * mbCols;
+            for (var i = 0; i < totalMbsP2; i++)
             {
                 // Skip flag (boolean coder, prob_skip_false).
                 boolhuff.vp8_encode_bool(ref bc0, mbSkip[i] ? 1 : 0, probSkipFalse);
@@ -564,7 +578,7 @@ namespace Vpx.Net
             }
 
             // ----- Open partition 1 (token partition) -----
-            BOOL_CODER bc1 = new BOOL_CODER();
+            var bc1 = new BOOL_CODER();
             fixed (byte* p = outBuf)
             {
                 boolhuff.vp8_start_encode(ref bc1, p + totalThroughP0, p + outBuf.Length);
@@ -575,25 +589,32 @@ namespace Vpx.Net
                 // tokens to partition 1, mirroring the decoder which on
                 // skip_flag = 1 calls vp8_reset_mb_tokens_context and
                 // never reads coefficient bits for the MB.
-                int totalMbs = mbRows * mbCols;
-                for (int i = 0; i < totalMbs; i++)
+                var totalMbs = mbRows * mbCols;
+                for (var i = 0; i < totalMbs; i++)
                 {
                     if (mbSkip[i]) continue;
 
                     var r = mbResults[i];
                     bitstream.vp8_pack_tokens(ref bc1, r.Y2Block);
-                    for (int b = 0; b < 16; b++) bitstream.vp8_pack_tokens(ref bc1, r.YBlocks[b]);
-                    for (int b = 0; b < 4;  b++) bitstream.vp8_pack_tokens(ref bc1, r.UBlocks[b]);
-                    for (int b = 0; b < 4;  b++) bitstream.vp8_pack_tokens(ref bc1, r.VBlocks[b]);
+                    for (var b = 0; b < 16; b++) bitstream.vp8_pack_tokens(ref bc1, r.YBlocks[b]);
+                    for (var b = 0; b < 4;  b++) bitstream.vp8_pack_tokens(ref bc1, r.UBlocks[b]);
+                    for (var b = 0; b < 4;  b++) bitstream.vp8_pack_tokens(ref bc1, r.VBlocks[b]);
                 }
 
                 boolhuff.vp8_stop_encode(ref bc1);
             }
 
-            int totalBytes = totalThroughP0 + (int)bc1.pos;
-            byte[] result = new byte[totalBytes];
-            Array.Copy(outBuf, result, totalBytes);
-            return result;
+            var totalBytes = totalThroughP0 + (int)bc1.pos;
+            output.Write(outBuf.AsSpan(0, totalBytes));
+        }
+
+        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        internal static byte[] EncodeInterFrameWithBuffers(byte[] srcY, byte[] srcU, byte[] srcV,
+            int width, int height, int qIndex, FrameEncoderBuffers buffers, bool intraFallback = true)
+        {
+            using var output = new ArrayPoolBufferWriter<byte>();
+            EncodeInterFrameWithBuffers(output, srcY, srcU, srcV, width, height, qIndex, buffers, intraFallback);
+            return output.WrittenSpan.ToArray();
         }
 
         /// <summary>
@@ -608,6 +629,7 @@ namespace Vpx.Net
         /// and the per-MB inter mode bit writer (PR 4) into a fully
         /// decodable inter frame.
         /// </summary>
+        /// <param name="output">The buffer writer to receive the encoded VP8 frame bytes.</param>
         /// <param name="srcY">width * height luma source bytes.</param>
         /// <param name="srcU">(width/2) * (height/2) chroma U.</param>
         /// <param name="srcV">(width/2) * (height/2) chroma V.</param>
@@ -622,8 +644,7 @@ namespace Vpx.Net
         /// the encode cost per inter frame. When false, every MB is ZEROMV
         /// inter (the original P-frame behaviour): cheapest, but regions whose
         /// per-frame change quantises to zero drift until the next keyframe.</param>
-        /// <returns>The encoded VP8 inter frame bytes.</returns>
-        internal static byte[] EncodeInterFrameWithBuffers(byte[] srcY, byte[] srcU, byte[] srcV,
+        internal static void EncodeInterFrameWithBuffers(IBufferWriter<byte> output, ReadOnlySpan<byte> srcY, ReadOnlySpan<byte> srcU, ReadOnlySpan<byte> srcV,
             int width, int height, int qIndex, FrameEncoderBuffers buffers, bool intraFallback = true)
         {
             if (buffers == null) throw new System.ArgumentNullException(nameof(buffers));
@@ -631,18 +652,18 @@ namespace Vpx.Net
                 throw new ArgumentException("width must be a positive multiple of 16", nameof(width));
             if (height <= 0 || height % 16 != 0)
                 throw new ArgumentException("height must be a positive multiple of 16", nameof(height));
-            if (srcY == null || srcY.Length != width * height)
+            if (srcY.Length != width * height)
                 throw new ArgumentException("srcY size mismatch");
             int chromaW = width / 2, chromaH = height / 2;
-            if (srcU == null || srcU.Length != chromaW * chromaH)
+            if (srcU.Length != chromaW * chromaH)
                 throw new ArgumentException("srcU size mismatch");
-            if (srcV == null || srcV.Length != chromaW * chromaH)
+            if (srcV.Length != chromaW * chromaH)
                 throw new ArgumentException("srcV size mismatch");
 
-            int mbCols = width / 16;
-            int mbRows = height / 16;
+            var mbCols = width / 16;
+            var mbRows = height / 16;
 
-            FrameQuantizer fq = quantizer_init.BuildForQIndex(qIndex);
+            var fq = quantizer_init.BuildForQIndex(qIndex);
 
             var buf = buffers;
             buf.EnsureForFrame(width, height);
@@ -659,10 +680,10 @@ namespace Vpx.Net
                 BaseQindex = qIndex,
             };
 
-            byte[] outBuf = buf.OutBuf;
+            var outBuf = buf.OutBuf;
 
             // ----- Open compressed first partition (header through refresh_last_frame) -----
-            BOOL_CODER bc0 = new BOOL_CODER();
+            var bc0 = new BOOL_CODER();
             int partitionStart;
             fixed (byte* p = outBuf)
             {
@@ -670,10 +691,10 @@ namespace Vpx.Net
             }
 
             // ----- Coef-prob updates: 1056 zero flag bits (no updates) -----
-            for (int t = 0; t < entropy.BLOCK_TYPES; t++)
-                for (int b = 0; b < entropy.COEF_BANDS; b++)
-                    for (int c = 0; c < entropy.PREV_COEF_CONTEXTS; c++)
-                        for (int n = 0; n < entropy.ENTROPY_NODES; n++)
+            for (var t = 0; t < entropy.BLOCK_TYPES; t++)
+                for (var b = 0; b < entropy.COEF_BANDS; b++)
+                    for (var c = 0; c < entropy.PREV_COEF_CONTEXTS; c++)
+                        for (var n = 0; n < entropy.ENTROPY_NODES; n++)
                             boolhuff.vp8_encode_bool(ref bc0, 0,
                                 coefupdateprobs.vp8_coef_update_probs[t, b, c, n]);
 
@@ -702,53 +723,53 @@ namespace Vpx.Net
             // The decoder reconstructs whichever mode we signal, so either
             // choice is bit-exact; the decision only trades quality vs size.
 
-            MbEncodeResult[] mbResults = buf.MbResults;            // inter candidate pool.
-            MbEncodeResult[] mbResultsIntra = buf.MbResultsIntra;  // intra candidate pool.
-            bool[] mbSkip = buf.MbSkip;
-            bool[] isIntra = buf.IsIntra;
-            int skipTrueCount = 0;
-            int skipFalseCount = 0;
-            int intraCount = 0;
+            var mbResults = buf.MbResults;            // inter candidate pool.
+            var mbResultsIntra = buf.MbResultsIntra;  // intra candidate pool.
+            var mbSkip = buf.MbSkip;
+            var isIntra = buf.IsIntra;
+            var skipTrueCount = 0;
+            var skipFalseCount = 0;
+            var intraCount = 0;
 
-            byte[] frameAboveCtx = buf.FrameAboveCtx;
+            var frameAboveCtx = buf.FrameAboveCtx;
             Array.Clear(frameAboveCtx, 0, mbCols * 9);
 
-            byte[] leftCtx = buf.LeftCtx;
-            byte[] mbY = buf.MbY;
-            byte[] mbU = buf.MbU;
-            byte[] mbV = buf.MbV;
+            var leftCtx = buf.LeftCtx;
+            var mbY = buf.MbY;
+            var mbU = buf.MbU;
+            var mbV = buf.MbV;
 
             // ZEROMV prediction buffers (16x16 Y + 8x8 U + 8x8 V).
-            byte[] predY = buf.PredY;
-            byte[] predU = buf.PredU;
-            byte[] predV = buf.PredV;
+            var predY = buf.PredY;
+            var predU = buf.PredU;
+            var predV = buf.PredV;
 
             // Per-candidate entropy-context copies (both candidates start
             // from the same above/left context; only the winner's mutated
             // context is committed).
-            byte[] ctxAboveInter = buf.CtxAboveInter;
-            byte[] ctxLeftInter = buf.CtxLeftInter;
-            byte[] ctxAboveIntra = buf.CtxAboveIntra;
-            byte[] ctxLeftIntra = buf.CtxLeftIntra;
+            var ctxAboveInter = buf.CtxAboveInter;
+            var ctxLeftInter = buf.CtxLeftInter;
+            var ctxAboveIntra = buf.CtxAboveIntra;
+            var ctxLeftIntra = buf.CtxLeftIntra;
 
             // Current-frame reconstructed-neighbour buffers for intra
             // prediction (same role as in the keyframe path).
-            byte[] aboveYRow = buf.AboveYRow;
-            byte[] aboveURow = buf.AboveURow;
-            byte[] aboveVRow = buf.AboveVRow;
-            byte[] leftY = buf.LeftY;
-            byte[] leftU = buf.LeftU;
-            byte[] leftV = buf.LeftV;
-            byte[] aboveY = buf.AboveY;
-            byte[] aboveU = buf.AboveU;
-            byte[] aboveV = buf.AboveV;
+            var aboveYRow = buf.AboveYRow;
+            var aboveURow = buf.AboveURow;
+            var aboveVRow = buf.AboveVRow;
+            var leftY = buf.LeftY;
+            var leftU = buf.LeftU;
+            var leftV = buf.LeftV;
+            var aboveY = buf.AboveY;
+            var aboveU = buf.AboveU;
+            var aboveV = buf.AboveV;
 
-            for (int mbRow = 0; mbRow < mbRows; mbRow++)
+            for (var mbRow = 0; mbRow < mbRows; mbRow++)
             {
-                bool haveLeftNeighbour = false;
+                var haveLeftNeighbour = false;
                 Array.Clear(leftCtx, 0, 9);
 
-                for (int mbCol = 0; mbCol < mbCols; mbCol++)
+                for (var mbCol = 0; mbCol < mbCols; mbCol++)
                 {
                     // Source MB.
                     ExtractPlaneInto(srcY, width,   mbCol * 16, mbRow * 16, 16, 16, mbY);
@@ -760,7 +781,7 @@ namespace Vpx.Net
                     ExtractPlaneInto(buf.LastFrameU, chromaW, mbCol * 8,  mbRow * 8,   8,  8, predU);
                     ExtractPlaneInto(buf.LastFrameV, chromaW, mbCol * 8,  mbRow * 8,   8,  8, predV);
 
-                    bool haveAbove = mbRow > 0;
+                    var haveAbove = mbRow > 0;
                     if (haveAbove)
                     {
                         ExtractRowInto(aboveYRow, mbCol * 16, 16, aboveY);
@@ -768,12 +789,12 @@ namespace Vpx.Net
                         ExtractRowInto(aboveVRow, mbCol * 8,  8,  aboveV);
                     }
 
-                    int aboveBase = mbCol * 9;
-                    int idx = mbRow * mbCols + mbCol;
+                    var aboveBase = mbCol * 9;
+                    var idx = mbRow * mbCols + mbCol;
 
                     // --- Inter (ZEROMV) candidate, from a copy of the start context. ---
-                    for (int s = 0; s < 9; s++) ctxAboveInter[s] = frameAboveCtx[aboveBase + s];
-                    for (int s = 0; s < 9; s++) ctxLeftInter[s] = leftCtx[s];
+                    for (var s = 0; s < 9; s++) ctxAboveInter[s] = frameAboveCtx[aboveBase + s];
+                    for (var s = 0; s < 9; s++) ctxLeftInter[s] = leftCtx[s];
 
                     var interR = mb_encoder.EncodeMacroblockZeroMvLast(
                         mbY, mbU, mbV,
@@ -784,7 +805,7 @@ namespace Vpx.Net
 
                     MbEncodeResult winner;
                     byte[] winAbove, winLeft;
-                    bool chooseIntra = false;
+                    var chooseIntra = false;
 
                     if (intraFallback)
                     {
@@ -800,8 +821,8 @@ namespace Vpx.Net
                         // accumulate. The RD cost below is measured against the
                         // SOURCE (distortion = SSE vs the source MB), so such an MB
                         // shows a large inter cost and is refreshed via intra.
-                        for (int s = 0; s < 9; s++) ctxAboveIntra[s] = frameAboveCtx[aboveBase + s];
-                        for (int s = 0; s < 9; s++) ctxLeftIntra[s] = leftCtx[s];
+                        for (var s = 0; s < 9; s++) ctxAboveIntra[s] = frameAboveCtx[aboveBase + s];
+                        for (var s = 0; s < 9; s++) ctxLeftIntra[s] = leftCtx[s];
 
                         var intraR = mb_encoder.EncodeMacroblockDcPred(
                             mbY, mbU, mbV,
@@ -815,8 +836,8 @@ namespace Vpx.Net
                             ctxAboveIntra, ctxLeftIntra,
                             mbResultsIntra[idx], scratch);
 
-                        long interCost = ModeRdCost(mbY, mbU, mbV, interR, isIntra: false);
-                        long intraCost = ModeRdCost(mbY, mbU, mbV, intraR, isIntra: true);
+                        var interCost = ModeRdCost(mbY, mbU, mbV, interR, isIntra: false);
+                        var intraCost = ModeRdCost(mbY, mbU, mbV, intraR, isIntra: true);
 
                         if (intraCost < interCost)
                         {
@@ -840,13 +861,13 @@ namespace Vpx.Net
                     isIntra[idx] = chooseIntra;
                     if (chooseIntra) intraCount++;
 
-                    bool skip = IsAllEob(winner);
+                    var skip = IsAllEob(winner);
                     mbSkip[idx] = skip;
                     if (skip) skipTrueCount++; else skipFalseCount++;
 
                     // Commit the winner's mutated entropy context.
-                    for (int s = 0; s < 9; s++) frameAboveCtx[aboveBase + s] = winAbove[s];
-                    for (int s = 0; s < 9; s++) leftCtx[s] = winLeft[s];
+                    for (var s = 0; s < 9; s++) frameAboveCtx[aboveBase + s] = winAbove[s];
+                    for (var s = 0; s < 9; s++) leftCtx[s] = winLeft[s];
 
                     // Update the current-frame reconstructed-neighbour buffers
                     // from the winner so a later intra MB predicts from the
@@ -867,22 +888,22 @@ namespace Vpx.Net
             // Same per-MB stitch as the keyframe path, reading each MB's
             // winning-candidate reconstruction. Future inter frames in the
             // stream use these bytes as their LAST_FRAME prediction source.
-            for (int mbRow = 0; mbRow < mbRows; mbRow++)
+            for (var mbRow = 0; mbRow < mbRows; mbRow++)
             {
-                for (int mbCol = 0; mbCol < mbCols; mbCol++)
+                for (var mbCol = 0; mbCol < mbCols; mbCol++)
                 {
-                    int idx = mbRow * mbCols + mbCol;
+                    var idx = mbRow * mbCols + mbCol;
                     var r = isIntra[idx] ? mbResultsIntra[idx] : mbResults[idx];
 
-                    int yBase = (mbRow * 16) * width + (mbCol * 16);
-                    for (int row = 0; row < 16; row++)
+                    var yBase = (mbRow * 16) * width + (mbCol * 16);
+                    for (var row = 0; row < 16; row++)
                     {
                         Buffer.BlockCopy(r.ReconY, row * 16,
                             buf.LastFrameY, yBase + row * width, 16);
                     }
 
-                    int cBase = (mbRow * 8) * chromaW + (mbCol * 8);
-                    for (int row = 0; row < 8; row++)
+                    var cBase = (mbRow * 8) * chromaW + (mbCol * 8);
+                    for (var row = 0; row < 8; row++)
                     {
                         Buffer.BlockCopy(r.ReconU, row * 8,
                             buf.LastFrameU, cBase + row * chromaW, 8);
@@ -903,13 +924,13 @@ namespace Vpx.Net
             }
             else
             {
-                int total = skipFalseCount + skipTrueCount;
-                int p = skipFalseCount * 256 / total;
+                var total = skipFalseCount + skipTrueCount;
+                var p = skipFalseCount * 256 / total;
                 if (p < 1) p = 1;
                 if (p > 255) p = 255;
                 probSkipFalse = (byte)p;
             }
-            for (int b = 7; b >= 0; b--)
+            for (var b = 7; b >= 0; b--)
                 bitstream.vp8_write_bit(ref bc0, (probSkipFalse >> b) & 1);
 
             // ----- Phase 2b: prob_intra / prob_last / prob_gf -----
@@ -921,16 +942,16 @@ namespace Vpx.Net
             // the previous all-inter behaviour.
             //   prob_last = 1   -> writing ref_is_LAST=0 costs ~0 bits.
             //   prob_gf   = 128 -> never used (ref is always LAST).
-            int totalMbCount = mbRows * mbCols;
-            int probIntraInt = intraCount * 256 / totalMbCount;
+            var totalMbCount = mbRows * mbCols;
+            var probIntraInt = intraCount * 256 / totalMbCount;
             if (probIntraInt < 1) probIntraInt = 1;
             if (probIntraInt > 255) probIntraInt = 255;
-            byte probIntra = (byte)probIntraInt;
+            var probIntra = (byte)probIntraInt;
             const byte probLast = 1;
             const byte probGf = 128;
-            for (int b = 7; b >= 0; b--) bitstream.vp8_write_bit(ref bc0, (probIntra >> b) & 1);
-            for (int b = 7; b >= 0; b--) bitstream.vp8_write_bit(ref bc0, (probLast >> b) & 1);
-            for (int b = 7; b >= 0; b--) bitstream.vp8_write_bit(ref bc0, (probGf >> b) & 1);
+            for (var b = 7; b >= 0; b--) bitstream.vp8_write_bit(ref bc0, (probIntra >> b) & 1);
+            for (var b = 7; b >= 0; b--) bitstream.vp8_write_bit(ref bc0, (probLast >> b) & 1);
+            for (var b = 7; b >= 0; b--) bitstream.vp8_write_bit(ref bc0, (probGf >> b) & 1);
 
             // ymode_prob update flag = 0 (use defaults).
             bitstream.vp8_write_bit(ref bc0, 0);
@@ -942,11 +963,11 @@ namespace Vpx.Net
             // an "update?" flag of 0 with the default vp8_mv_update_probs.
             // We never update MV probs because we never code MV
             // residuals (all MBs are ZEROMV).
-            for (int comp = 0; comp < 2; comp++)
+            for (var comp = 0; comp < 2; comp++)
             {
-                byte[] up = entropymv.vp8_mv_update_probs[comp].prob;
-                int mvpCount = (int)MV_ENUM.MVPcount;
-                for (int j = 0; j < mvpCount; j++)
+                var up = entropymv.vp8_mv_update_probs[comp].prob;
+                var mvpCount = (int)MV_ENUM.MVPcount;
+                for (var j = 0; j < mvpCount; j++)
                 {
                     boolhuff.vp8_encode_bool(ref bc0, 0, up[j]);
                 }
@@ -967,19 +988,19 @@ namespace Vpx.Net
             //
             // For intra MBs we write is_inter=0 then the DC_PRED Y/UV mode
             // bits (matching the decoder's intra branch).
-            byte[][] modeProbRows = new byte[6][];
-            for (int row = 0; row < 6; row++)
+            var modeProbRows = new byte[6][];
+            for (var row = 0; row < 6; row++)
             {
                 modeProbRows[row] = new byte[4];
-                for (int j = 0; j < 4; j++)
+                for (var j = 0; j < 4; j++)
                     modeProbRows[row][j] = (byte)modecont.vp8_mode_contexts[row, j];
             }
 
-            for (int mbRow = 0; mbRow < mbRows; mbRow++)
+            for (var mbRow = 0; mbRow < mbRows; mbRow++)
             {
-                for (int mbCol = 0; mbCol < mbCols; mbCol++)
+                for (var mbCol = 0; mbCol < mbCols; mbCol++)
                 {
-                    int i = mbRow * mbCols + mbCol;
+                    var i = mbRow * mbCols + mbCol;
 
                     // Skip flag (boolean coder, prob_skip_false).
                     boolhuff.vp8_encode_bool(ref bc0, mbSkip[i] ? 1 : 0, probSkipFalse);
@@ -995,10 +1016,10 @@ namespace Vpx.Net
                     {
                         // Neighbour-derived inter mode context (intra/border
                         // neighbours contribute nothing).
-                        bool aboveInter = mbRow > 0       && !isIntra[(mbRow - 1) * mbCols + mbCol];
-                        bool leftInter = mbCol > 0       && !isIntra[mbRow * mbCols + (mbCol - 1)];
-                        bool aboveLeftInter = mbRow > 0 && mbCol > 0 && !isIntra[(mbRow - 1) * mbCols + (mbCol - 1)];
-                        int cnt = (aboveInter ? 2 : 0) + (leftInter ? 2 : 0) + (aboveLeftInter ? 1 : 0);
+                        var aboveInter = mbRow > 0       && !isIntra[(mbRow - 1) * mbCols + mbCol];
+                        var leftInter = mbCol > 0       && !isIntra[mbRow * mbCols + (mbCol - 1)];
+                        var aboveLeftInter = mbRow > 0 && mbCol > 0 && !isIntra[(mbRow - 1) * mbCols + (mbCol - 1)];
+                        var cnt = (aboveInter ? 2 : 0) + (leftInter ? 2 : 0) + (aboveLeftInter ? 1 : 0);
 
                         // is_inter=1, ref_is_LAST=0, ZEROMV tree path.
                         bitstream.WriteInterMbRefAndMode(
@@ -1019,21 +1040,21 @@ namespace Vpx.Net
             }
 
             // ----- Open partition 1 (token partition) -----
-            BOOL_CODER bc1 = new BOOL_CODER();
+            var bc1 = new BOOL_CODER();
             fixed (byte* p = outBuf)
             {
                 boolhuff.vp8_start_encode(ref bc1, p + totalThroughP0, p + outBuf.Length);
 
-                int totalMbs = mbRows * mbCols;
-                for (int i = 0; i < totalMbs; i++)
+                var totalMbs = mbRows * mbCols;
+                for (var i = 0; i < totalMbs; i++)
                 {
                     if (mbSkip[i]) continue;
 
                     var r = isIntra[i] ? mbResultsIntra[i] : mbResults[i];
                     bitstream.vp8_pack_tokens(ref bc1, r.Y2Block);
-                    for (int b = 0; b < 16; b++) bitstream.vp8_pack_tokens(ref bc1, r.YBlocks[b]);
-                    for (int b = 0; b < 4;  b++) bitstream.vp8_pack_tokens(ref bc1, r.UBlocks[b]);
-                    for (int b = 0; b < 4;  b++) bitstream.vp8_pack_tokens(ref bc1, r.VBlocks[b]);
+                    for (var b = 0; b < 16; b++) bitstream.vp8_pack_tokens(ref bc1, r.YBlocks[b]);
+                    for (var b = 0; b < 4;  b++) bitstream.vp8_pack_tokens(ref bc1, r.UBlocks[b]);
+                    for (var b = 0; b < 4;  b++) bitstream.vp8_pack_tokens(ref bc1, r.VBlocks[b]);
                 }
 
                 boolhuff.vp8_stop_encode(ref bc1);
@@ -1041,10 +1062,8 @@ namespace Vpx.Net
 
             LastInterFrameIntraMbCount = intraCount;
 
-            int totalBytes = totalThroughP0 + (int)bc1.pos;
-            byte[] result = new byte[totalBytes];
-            Array.Copy(outBuf, result, totalBytes);
-            return result;
+            var totalBytes = totalThroughP0 + (int)bc1.pos;
+            output.Write(outBuf.AsSpan(0, totalBytes));
         }
 
         /// <summary>
@@ -1142,25 +1161,25 @@ namespace Vpx.Net
             return c;
         }
 
-        private static void ExtractPlaneInto(byte[] src, int srcStride, int x, int y, int w, int h, byte[] dst)
+        private static void ExtractPlaneInto(ReadOnlySpan<byte> src, int srcStride, int x, int y, int w, int h, Span<byte> dst)
         {
             for (int r = 0; r < h; r++)
                 for (int c = 0; c < w; c++)
                     dst[r * w + c] = src[(y + r) * srcStride + (x + c)];
         }
 
-        private static void ExtractRowInto(byte[] src, int offset, int count, byte[] dst)
+        private static void ExtractRowInto(ReadOnlySpan<byte> src, int offset, int count, Span<byte> dst)
         {
             for (int i = 0; i < count; i++) dst[i] = src[offset + i];
         }
 
-        private static void ExtractColumnInto(byte[] src, int srcStride, int columnIndex, int rows, byte[] dst)
+        private static void ExtractColumnInto(ReadOnlySpan<byte> src, int srcStride, int columnIndex, int rows, Span<byte> dst)
         {
             for (int r = 0; r < rows; r++) dst[r] = src[r * srcStride + columnIndex];
         }
 
-        private static void CopyRowOut(byte[] src, int srcStride, int srcRow,
-            byte[] dst, int dstOffset, int count)
+        private static void CopyRowOut(ReadOnlySpan<byte> src, int srcStride, int srcRow,
+            Span<byte> dst, int dstOffset, int count)
         {
             for (int i = 0; i < count; i++) dst[dstOffset + i] = src[srcRow * srcStride + i];
         }

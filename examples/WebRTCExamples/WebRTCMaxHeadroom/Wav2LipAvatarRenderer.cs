@@ -195,7 +195,7 @@ public sealed class Wav2LipAvatarRenderer : IAvatarRenderer
     public event EncodedSampleDelegate OnVideoSourceEncodedSample;
     public event SourceErrorDelegate OnVideoSourceError;
 #pragma warning disable CS0067
-    public event RawVideoSampleDelegate OnVideoSourceRawSample;
+    public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
     public event RawVideoSampleFasterDelegate OnVideoSourceRawSampleFaster;
 #pragma warning restore CS0067
 

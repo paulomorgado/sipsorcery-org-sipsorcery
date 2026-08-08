@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen;
 using Microsoft.Extensions.Logging;
@@ -105,6 +106,15 @@ namespace SIPSorceryMedia.FFmpeg
                 result = Convert(pSrcData);
             }
             return result;
+        }
+
+        public AVFrame Convert(ReadOnlySpan<byte> srcData)
+        {
+            fixed (byte* pSrcData = srcData)
+            {
+                var result = Convert(pSrcData);
+                return result;
+            }
         }
 
         public AVFrame Convert(byte * pSrcData)

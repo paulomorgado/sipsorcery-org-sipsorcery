@@ -168,7 +168,20 @@ namespace Vpx.Net
         /// </summary>
         public bool EnableIntraFallback { get; set; } = false;
 
-        public byte[] EncodeVideo(int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
+        public byte[] EncodeVideo(int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
+        {
+            using var buffer = new ArrayPoolBufferWriter<byte>();
+            if (EncodeVideo(buffer, width, height, sample, pixelFormat, codec))
+            {
+                return buffer.WrittenSpan.ToArray();
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public bool EncodeVideo(IBufferWriter<byte> output, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
             lock (_encoderLock)
             {
@@ -242,10 +255,9 @@ namespace Vpx.Net
                                   || _framesSinceLastKeyframe >= _keyframeIntervalFrames;
                     _forceKeyFrame = false;
 
-                    byte[] result;
                     if (forceKey)
                     {
-                        result = frame_encoder.EncodeKeyframeWithBuffers(_srcY, _srcU, _srcV, width, height, _baseQIndex, _frameBuffers);
+                        frame_encoder.EncodeKeyframeWithBuffers(output, _srcY, _srcU, _srcV, width, height, _baseQIndex, _frameBuffers);
                         _framesSinceLastKeyframe = 1;
                     }
                     else
@@ -254,10 +266,10 @@ namespace Vpx.Net
                         // every macroblock. The reference frame is the
                         // reconstruction of the previous keyframe / inter
                         // frame, cached on the per-thread FrameEncoderBuffers.
-                        result = frame_encoder.EncodeInterFrameWithBuffers(_srcY, _srcU, _srcV, width, height, _baseQIndex, _frameBuffers, EnableIntraFallback);
+                        frame_encoder.EncodeInterFrameWithBuffers(output, _srcY, _srcU, _srcV, width, height, _baseQIndex, _frameBuffers, EnableIntraFallback);
                         _framesSinceLastKeyframe++;
                     }
-                    return result;
+                    return true;
                 }
                 finally
                 {
@@ -329,6 +341,11 @@ namespace Vpx.Net
             }
         }
 
+        public IEnumerable<VideoSample> DecodeVideo(ReadOnlySpan<byte> encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
+        {
+            throw new NotImplementedException();
+        }
+
         public void Dispose()
         {
             //_vp8Encoder?.Dispose();
@@ -341,6 +358,16 @@ namespace Vpx.Net
         }
 
         public IEnumerable<RawImage> DecodeVideoFaster(byte[] encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool EncodeVideoFaster(IBufferWriter<byte> output, RawImage rawImage, VideoCodecsEnum codec)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<RawImage> DecodeVideoFaster(ReadOnlySpan<byte> encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
             throw new NotImplementedException();
         }

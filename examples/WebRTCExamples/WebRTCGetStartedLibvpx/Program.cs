@@ -92,7 +92,7 @@ namespace demo
             MediaStreamTrack audioTrack = new MediaStreamTrack(audioSource.GetAudioSourceFormats(), MediaStreamStatusEnum.SendRecv);
             pc.addTrack(audioTrack);
 
-            testPatternSource.OnVideoSourceRawSample += (durationMilliseconds, width, height, sample, pixelFormat) =>
+            testPatternSource.OnVideoSourceRawSpanSample += (durationMilliseconds, width, height, sample, pixelFormat) =>
                 // TODO: converto to use ReadOnlySpan<byte> in VideoEncoderEndPoint.ExternalVideoSourceRawSample.
                 videoEncoderEndPoint.ExternalVideoSourceRawSample(durationMilliseconds, width, height, sample.ToArray(), pixelFormat);
             videoEncoderEndPoint.OnVideoSourceEncodedSample += pc.SendVideo;

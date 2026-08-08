@@ -109,7 +109,7 @@ namespace demo
 
             #region Wire up the video source and sink to the picutre boxes.
 
-            videoSource.OnVideoSourceRawSample += (durationMilliseconds, width, height, sample, pixelFormat) =>
+            videoSource.OnVideoSourceRawSpanSample += (durationMilliseconds, width, height, sample, pixelFormat) =>
             {
                 if (isFormActivated)
                 {
