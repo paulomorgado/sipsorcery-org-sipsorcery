@@ -2350,12 +2350,15 @@ namespace SIPSorcery.Net
         /// <param name="durationRtpUnits">The duration in RTP timestamp units of the audio sample. This
         /// value is added to the previous RTP timestamp when building the RTP header.</param>
         /// <param name="sample">The audio sample to set as the RTP packet payload.</param>
-        public void SendAudio(uint durationRtpUnits, byte[] sample)
+        public void SendAudio(uint durationRtpUnits, ReadOnlySpan<byte> sample)
         {
             //logger.LogTrace("SendAudio: durationRtpUnits={DurationRtpUnits}, sample size={Sample}", durationRtpUnits, sample?.Length);
 
             AudioStream?.SendAudio(durationRtpUnits, sample);
         }
+
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public void SendAudio(uint durationRtpUnits, byte[] sample) => SendAudio(durationRtpUnits, sample.AsSpan());
 
         /// <summary>
         /// Sends a video sample to the remote peer. (on the primary one)
@@ -2363,19 +2366,25 @@ namespace SIPSorcery.Net
         /// <param name="durationRtpUnits">The duration in RTP timestamp units of the video sample. This
         /// value is added to the previous RTP timestamp when building the RTP header.</param>
         /// <param name="sample">The video sample to set as the RTP packet payload.</param>
-        public void SendVideo(uint durationRtpUnits, byte[] sample)
+        public void SendVideo(uint durationRtpUnits, ReadOnlySpan<byte> sample)
         {
             VideoStream?.SendVideo(durationRtpUnits, sample);
         }
+
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public void SendVideo(uint durationRtpUnits, byte[] sample) => SendVideo(durationRtpUnits, sample.AsSpan());
 
         /// <summary>
         /// Sends a text sample to the remote peer. (on the primary one)
         /// </summary>
         /// <param name="sample">The text sample to set as the RTP packet payload.</param>
-        public void SendText(byte[] sample)
+        public void SendText(ReadOnlySpan<byte> sample)
         {
             TextStream?.SendText(sample);
         }
+
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public void SendText(byte[] sample) => SendText(sample.AsSpan());
 
         /// <summary>
         /// Sends a DTMF tone as an RTP event to the remote party. (on the primary one)

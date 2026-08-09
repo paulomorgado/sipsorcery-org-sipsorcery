@@ -128,6 +128,7 @@ namespace SIPSorcery.Cli.Commands.Bridge
         }
 
         public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
         public event SourceErrorDelegate OnVideoSourceError;
 

@@ -61,6 +61,7 @@ public class VideoBitmapSource : IVideoSource, IDisposable
     /// <summary>
     /// Unencoded test pattern samples.
     /// </summary>
+    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
     public event RawVideoSampleDelegate OnVideoSourceRawSample = delegate { };
 
 #pragma warning disable CS0067
@@ -71,6 +72,7 @@ public class VideoBitmapSource : IVideoSource, IDisposable
     /// If a video encoder has been set then this event contains the encoded video
     /// samples.
     /// </summary>
+    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
     public event EncodedSampleDelegate OnVideoSourceEncodedSample = delegate { };
 
     public event SourceErrorDelegate OnVideoSourceError = delegate { };
@@ -96,6 +98,7 @@ public class VideoBitmapSource : IVideoSource, IDisposable
     public void ForceKeyFrame() => _videoEncoder?.ForceKeyFrame();
     public bool HasEncodedVideoSubscribers() => OnVideoSourceEncodedSample != null;
 
+    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
     public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat) =>
         throw new NotImplementedException("The test pattern video source does not offer any encoding services for external sources.");
 

@@ -21,7 +21,7 @@ using System.Threading.Tasks;
 
 namespace SIPSorceryMedia.Abstractions;
 
-[Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+[Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
 public delegate void RawVideoSampleDelegate(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat);
 public delegate void RawSpanVideoSampleDelegate(uint durationMilliseconds, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat);
 
@@ -29,11 +29,11 @@ public delegate void RawVideoSampleFasterDelegate(uint durationMilliseconds, Raw
 
 public interface IVideoSource
 {
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     event EncodedSampleDelegate OnVideoSourceEncodedSample;
     event EncodedSampleSpanDelegate OnVideoSourceEncodedSampleSpan;
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     event RawVideoSampleDelegate OnVideoSourceRawSample;
     event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
 
@@ -55,7 +55,7 @@ public interface IVideoSource
 
     void RestrictFormats(Func<VideoFormat, bool> filter);
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat);
     void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat);
 

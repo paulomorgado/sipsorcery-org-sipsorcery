@@ -49,7 +49,7 @@ namespace Vpx.Net
         /// <summary>
         /// This event will be fired whenever a video sample is encoded and is ready to transmit to the remote party.
         /// </summary>
-        [Obsolete("This video source only generates encoded samples. No raw video samples will be supplied to this event.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
 
         /// <summary>
@@ -61,6 +61,7 @@ namespace Vpx.Net
         public event SourceErrorDelegate OnVideoSourceError;
         public event RawVideoSampleFasterDelegate OnVideoSourceRawSampleFaster;
         public event VideoSinkSampleDecodedFasterDelegate OnVideoSinkDecodedSampleFaster;
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event RawVideoSampleDelegate OnVideoSourceRawSample;
         public event EncodedSampleSpanDelegate OnVideoSourceEncodedSampleSpan;
 #pragma warning restore CS0067
@@ -195,6 +196,7 @@ namespace Vpx.Net
             throw new NotImplementedException();
         }
 
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat)
         {
             throw new NotImplementedException();

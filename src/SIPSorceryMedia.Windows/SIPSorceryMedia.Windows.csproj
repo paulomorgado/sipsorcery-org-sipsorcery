@@ -10,6 +10,7 @@
 
   <PropertyGroup>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>10.0</LangVersion>
 	<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
 	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
     <PackageId>SIPSorceryMedia.Windows</PackageId>

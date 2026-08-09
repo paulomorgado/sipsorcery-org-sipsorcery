@@ -136,7 +136,9 @@ namespace SIPSorcery.Media
         /// </summary>
         public event Action OnSendFromAudioStreamComplete;
 
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event EncodedSampleDelegate OnAudioSourceEncodedSample;
+        public event EncodedSampleSpanDelegate OnAudioSourceEncodedSampleSpan;
 
         public event Action<EncodedAudioFrame> OnAudioSourceEncodedFrameReady;
 

@@ -15,7 +15,9 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance.Buffers;
 
 namespace SIPSorceryMedia.Abstractions;
 
@@ -46,23 +48,35 @@ public class RawImage
     /// </summary>
     public VideoPixelFormatsEnum PixelFormat { get; set; }
 
-    /// <summary>
-    /// Get bytes array of the image.
-    /// 
-    /// For performance reasons it's better to use directly Sample
-    /// </summary>
-    /// <returns></returns>
+    [Obsolete("Use the overload that takes an IBufferWriter in order to reduce memory allocations.")]
     public byte[] GetBuffer()
     {
-        byte[] result = null;
+        using var buffer = new ArrayPoolBufferWriter<byte>();
+        WriteTo(buffer);
+        return buffer.WrittenSpan.ToArray();
+    }
 
+    /// <summary>
+    /// Get bytes array of the image.
+    /// For performance reasons it's better to use directly Sample
+    /// </summary>
+    /// <returns>The number of bytes written to the output buffer.</returns>
+    public int WriteTo(IBufferWriter<byte> output)
+    {
         if ((Height > 0) && (Stride > 0))
         {
             var bufferSize = Height * Stride;
 
-            result = new byte[bufferSize];
-            Marshal.Copy(Sample, result, 0, bufferSize);
+            // Create a span directly over the unmanaged Sample pointer and copy to output.
+            unsafe
+            {
+                new Span<byte>(Sample.ToPointer(), bufferSize).CopyTo(output.GetSpan(bufferSize));
+                output.Advance(bufferSize);
+            }
+
+            return bufferSize;
         }
-        return result;
+
+        return 0;
     }
 }

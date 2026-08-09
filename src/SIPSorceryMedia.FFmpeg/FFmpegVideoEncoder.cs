@@ -79,7 +79,7 @@ namespace SIPSorceryMedia.FFmpeg
             _HwDeviceType = HWDeviceType;
         }
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public byte[]? EncodeVideo(int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
             using var output = new ArrayPoolBufferWriter<byte>();
@@ -93,7 +93,7 @@ namespace SIPSorceryMedia.FFmpeg
             }
         }
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public byte[]? EncodeVideoFaster(RawImage rawImage, VideoCodecsEnum codec)
         {
             using var output = new ArrayPoolBufferWriter<byte>();
@@ -113,7 +113,7 @@ namespace SIPSorceryMedia.FFmpeg
             return EncodeVideo(output, rawImage.Width, rawImage.Height, pSample, rawImage.PixelFormat, codec);
         }
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         private byte[]? EncodeVideo(int width, int height, byte* sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
             using var output = new ArrayPoolBufferWriter<byte>();
@@ -157,7 +157,7 @@ namespace SIPSorceryMedia.FFmpeg
             _forceKeyFrame = true;
         }
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public IEnumerable<RawImage> DecodeVideoFaster(byte[] encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
             return DecodeVideoFaster(encodedSample.AsSpan(), pixelFormat, codec);
@@ -180,7 +180,7 @@ namespace SIPSorceryMedia.FFmpeg
             return Enumerable.Empty<RawImage>();
         }
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public IEnumerable<VideoSample> DecodeVideo(byte[] encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec)
         {
             return DecodeVideo(encodedSample.AsSpan(), pixelFormat, codec);
@@ -193,9 +193,13 @@ namespace SIPSorceryMedia.FFmpeg
 
             static IEnumerable<VideoSample> DecodeVideoCore(IEnumerable<RawImage> rawImageList)
             {
+                using var buffer = new ArrayPoolBufferWriter<byte>();
+
                 foreach (var rawImage in rawImageList)
                 {
-                    yield return new VideoSample { Width = (uint)rawImage.Width, Height = (uint)rawImage.Height, Sample = rawImage.GetBuffer() };
+                    buffer.Clear();
+                    rawImage.WriteTo(buffer);
+                    yield return new VideoSample { Width = (uint)rawImage.Width, Height = (uint)rawImage.Height, Sample = buffer.WrittenSpan.ToArray() };
                 }
             }
         }
@@ -669,7 +673,7 @@ namespace SIPSorceryMedia.FFmpeg
             return false;
         }
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public byte[]? Encode(AVCodecID codecID, byte* sample, int width, int height, int fps, bool keyFrame = false, AVPixelFormat pixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P)
         {
             using var output = new ArrayPoolBufferWriter<byte>();
@@ -739,7 +743,7 @@ namespace SIPSorceryMedia.FFmpeg
             }
         }
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public byte[]? Encode(AVCodecID codecID, AVFrame* avFrame, int fps, bool keyFrame = false)
         {
             using var output = new ArrayPoolBufferWriter<byte>();
@@ -910,7 +914,7 @@ namespace SIPSorceryMedia.FFmpeg
             }
         }
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public List<RawImage>? DecodeFaster(AVCodecID codecID, byte[] buffer, out int width, out int height)
         {
             return DecodeFaster(codecID, buffer.AsSpan(), out width, out height);

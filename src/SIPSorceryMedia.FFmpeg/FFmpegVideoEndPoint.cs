@@ -55,6 +55,7 @@ public class FFmpegVideoEndPoint : IVideoSource, IVideoSink, IDisposable
 
     // ---- Source (encode) events ----
 
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public event EncodedSampleDelegate? OnVideoSourceEncodedSample;
     /// <summary>
     /// Fired when a raw sample supplied via <see cref="OnVideoSourceEncodedSampleSpan"/> or
@@ -65,7 +66,7 @@ public class FFmpegVideoEndPoint : IVideoSource, IVideoSink, IDisposable
 #pragma warning disable CS0067
     // This endpoint only produces ENCODED video samples (it encodes raw input supplied via the
     // ExternalVideoSourceRawSample* methods). It never emits raw source samples or source errors.
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public event RawVideoSampleDelegate? OnVideoSourceRawSample;
     public event RawSpanVideoSampleDelegate? OnVideoSourceRawSpanSample;
     public event RawVideoSampleFasterDelegate? OnVideoSourceRawSampleFaster;
@@ -202,7 +203,7 @@ public class FFmpegVideoEndPoint : IVideoSource, IVideoSink, IDisposable
         return Task.CompletedTask;
     }
 
-    [Obsolete("This method is deprecated. Use the ReadOnlySpan<byte> variant instead.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat)
         => ExternalVideoSourceRawSample(durationMilliseconds, width, height, sample.AsSpan(), pixelFormat);
 

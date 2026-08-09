@@ -272,7 +272,7 @@ namespace Vpx.Net
         // The keyframe UV mode tree has 3 internal nodes; probs are
         // vp8_kf_uv_mode_prob = { 142, 114, 183 }.
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         internal static byte[] EncodeKeyframeWithBuffers(byte[] srcY, byte[] srcU, byte[] srcV,
             int width, int height, int qIndex, FrameEncoderBuffers buffers)
         {
@@ -608,7 +608,7 @@ namespace Vpx.Net
             output.Write(outBuf.AsSpan(0, totalBytes));
         }
 
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         internal static byte[] EncodeInterFrameWithBuffers(byte[] srcY, byte[] srcU, byte[] srcV,
             int width, int height, int qIndex, FrameEncoderBuffers buffers, bool intraFallback = true)
         {

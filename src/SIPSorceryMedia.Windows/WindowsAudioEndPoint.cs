@@ -20,10 +20,14 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using CommunityToolkit.HighPerformance.Buffers;
 using Microsoft.Extensions.Logging;
 using NAudio.Wave;
 using SIPSorceryMedia.Abstractions;
@@ -59,7 +63,7 @@ namespace SIPSorceryMedia.Windows
         /// <summary>
         /// Buffer for audio samples to be rendered.
         /// </summary>
-        private BufferedWaveProvider _waveProvider;
+        private Sys.BufferedWaveProvider _waveProvider;
 
         /// <summary>
         /// Audio capture device.
@@ -84,9 +88,10 @@ namespace SIPSorceryMedia.Windows
         /// <summary>
         /// Obsolete. Use the <cref="OnAudioSourceEncodedSample"/> event instead.
         /// </summary>
-#pragma warning disable CS0618 // Waiting for refactoring
+        public event EncodedSampleSpanDelegate OnAudioSourceEncodedSampleSpan;
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event EncodedSampleDelegate OnAudioSourceEncodedSample;
-#pragma warning restore CS0618 // Waiting for refactoring
+
         /// <summary>
         /// Event handler for when an encoded audio frame is ready to be sent to the RTP transport layer.
         /// The sample contained in this event is already encoded with the chosen audio format (codec) and ready for transmission.
@@ -156,7 +161,7 @@ namespace SIPSorceryMedia.Windows
         public List<AudioFormat> GetAudioSourceFormats() => _audioFormatManager.GetSourceFormats();
         public List<AudioFormat> GetAudioSinkFormats() => _audioFormatManager.GetSourceFormats();
 
-        public bool HasEncodedAudioSubscribers() => OnAudioSourceEncodedSample != null;
+        public bool HasEncodedAudioSubscribers() => OnAudioSourceEncodedSampleSpan is not null || OnAudioSourceEncodedSample is not null;
         public bool IsAudioSourcePaused() => _isAudioSourcePaused;
         public bool IsAudioSinkPaused() => _isAudioSinkPaused;
         public void ExternalAudioSourceRawSample(AudioSamplingRatesEnum samplingRate, uint durationMilliseconds, short[] sample) =>
@@ -287,7 +292,7 @@ namespace SIPSorceryMedia.Windows
                 // Playback device.
                 _waveOutEvent = new WaveOutEvent();
                 _waveOutEvent.DeviceNumber = audioOutDeviceIndex;
-                _waveProvider = new BufferedWaveProvider(_waveSinkFormat);
+                _waveProvider = new Sys.BufferedWaveProvider(_waveSinkFormat);
                 _waveProvider.DiscardOnBufferOverflow = true;
                 _waveOutEvent.Init(_waveProvider);
             }
@@ -348,18 +353,17 @@ namespace SIPSorceryMedia.Windows
             // Note NAudio.Wave.WaveBuffer.ShortBuffer does not take into account little endian.
             // https://github.com/naudio/NAudio/blob/master/NAudio/Wave/WaveOutputs/WaveBuffer.cs
 
-            short[] pcm = new short[args.BytesRecorded / sizeof(short)];
-            Buffer.BlockCopy(args.Buffer, 0, pcm, 0, args.BytesRecorded);
-            byte[] encodedSample = _audioEncoder.EncodeAudio(pcm, _audioFormatManager.SelectedFormat);
+            using var encodedBuffer = new ArrayPoolBufferWriter<byte>();
+            _audioEncoder.EncodeAudio(encodedBuffer, MemoryMarshal.Cast<byte,short>(args.Buffer.AsSpan(0, args.BytesRecorded)), _audioFormatManager.SelectedFormat);
             
-            OnAudioSourceEncodedSample?.Invoke((uint)encodedSample.Length, encodedSample);
+            OnAudioSourceEncodedSample?.Invoke((uint)encodedBuffer.WrittenCount, encodedBuffer.WrittenMemory.ToArray());
 
             if (OnAudioSourceEncodedFrameReady != null)
             {
                 var encodedAudioFrame = new EncodedAudioFrame(0,
                     _audioFormatManager.SelectedFormat,
-                    GetEncodSampleDurationMs(pcm.Length, _audioFormatManager.SelectedFormat),
-                    encodedSample);
+                    GetEncodSampleDurationMs(args.BytesRecorded / sizeof(short), _audioFormatManager.SelectedFormat),
+                    encodedBuffer.WrittenMemory.ToArray());
                 OnAudioSourceEncodedFrameReady(encodedAudioFrame);
             }
         }
@@ -377,13 +381,16 @@ namespace SIPSorceryMedia.Windows
         /// Event handler for playing audio samples received from the remote call party.
         /// </summary>
         /// <param name="pcmSample">Raw PCM sample from remote party.</param>
-        public void GotAudioSample(byte[] pcmSample)
+        public void GotAudioSample(ReadOnlySpan<byte> pcmSample)
         {
             if (_waveProvider != null)
             {
-                _waveProvider.AddSamples(pcmSample, 0, pcmSample.Length);
+                _waveProvider.AddSamples(pcmSample);
             }
         }
+
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public void GotAudioSample(byte[] pcmSample) => _waveProvider?.AddSamples(pcmSample.AsSpan());
 
         /// <summary>
         /// Obsolete. Use the <cref="GotEncodedMediaFrame"/> method instead.
@@ -393,9 +400,10 @@ namespace SIPSorceryMedia.Windows
         {
             if (_waveProvider != null && _audioEncoder != null)
             {
-                var pcmSample = _audioEncoder.DecodeAudio(payload, _audioFormatManager.SelectedFormat);
-                byte[] pcmBytes = pcmSample.SelectMany(BitConverter.GetBytes).ToArray();
-                _waveProvider?.AddSamples(pcmBytes, 0, pcmBytes.Length);
+                using var pcmBuffer = new ArrayPoolBufferWriter<short>();
+                _audioEncoder.DecodeAudio(pcmBuffer, payload.AsSpan(), _audioFormatManager.SelectedFormat);
+                var pcmBytes = MemoryMarshal.Cast<short, byte>(pcmBuffer.WrittenSpan).ToArray();
+                _waveProvider?.AddSamples(pcmBytes);
             }
         }
 
@@ -425,9 +433,10 @@ namespace SIPSorceryMedia.Windows
                     }
                 }
 
-                var pcmSample = _audioEncoder.DecodeAudio(encodedMediaFrame.EncodedAudio, audioFormat);
-                byte[] pcmBytes = pcmSample.SelectMany(BitConverter.GetBytes).ToArray();
-                _waveProvider?.AddSamples(pcmBytes, 0, pcmBytes.Length);
+                using var pcmBuffer = new ArrayPoolBufferWriter<short>();
+                _audioEncoder.DecodeAudio(pcmBuffer, encodedMediaFrame.EncodedAudio.AsSpan(), audioFormat);
+                var pcmBytes = MemoryMarshal.Cast<short, byte>(pcmBuffer.WrittenSpan).ToArray();
+                _waveProvider?.AddSamples(pcmBytes);
             }
         }
 

@@ -32,13 +32,14 @@ namespace SIPSorceryMedia.FFmpeg
 
         internal MediaFormatManager<VideoFormat> _videoFormatManager;
 
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event EncodedSampleDelegate? OnVideoSourceEncodedSample;
         public event RawVideoSampleFasterDelegate? OnVideoSourceRawSampleFaster;
 
         public event SourceErrorDelegate? OnVideoSourceError;
 
 #pragma warning disable CS0067
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event RawVideoSampleDelegate? OnVideoSourceRawSample;
         public event RawSpanVideoSampleDelegate? OnVideoSourceRawSpanSample;
         public event EncodedSampleSpanDelegate OnVideoSourceEncodedSampleSpan;

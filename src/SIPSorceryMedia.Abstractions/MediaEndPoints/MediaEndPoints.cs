@@ -19,7 +19,7 @@ using System;
 
 namespace SIPSorceryMedia.Abstractions;
 
-[Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+[Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
 public delegate void EncodedSampleDelegate(uint durationRtpUnits, byte[] sample);
 public delegate void EncodedSampleSpanDelegate(uint durationRtpUnits, ReadOnlySpan<byte> sample);
 

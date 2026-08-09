@@ -10,7 +10,8 @@
     <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
 	<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
 	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    <Authors>Aaron Clauson</Authors>
+	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<Authors>Aaron Clauson</Authors>
     <Copyright>Copyright © 2020-2026 Aaron Clauson</Copyright>
     <Company>SIP Sorcery PTY LTD</Company>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>

@@ -408,14 +408,14 @@ namespace SIPSorcery.Net
             return rv;
         }
 
-        protected void SendRtpRaw(ArraySegment<byte> data, uint timestamp, int markerBit, int payloadType, Boolean checkDone, ushort? seqNum = null)
+        protected void SendRtpRaw(ReadOnlySpan<byte> data, uint timestamp, int markerBit, int payloadType, bool checkDone, ushort? seqNum = null)
         {
             if (HasRtpChannel() && (checkDone || CheckIfCanSendRtpRaw()))
             {
-                ProtectRtpPacket protectRtpPacket = SecureContext?.ProtectRtpPacket;
+                var protectRtpPacket = SecureContext?.ProtectRtpPacket;
                 int srtpProtectionLength = (protectRtpPacket != null) ? RTPSession.SRTP_MAX_PREFIX_LENGTH : 0;
 
-                RTPPacket rtpPacket = new RTPPacket(data, srtpProtectionLength);
+                var rtpPacket = new RTPPacket(data, srtpProtectionLength);
 
                 rtpPacket.Header.SyncSource = LocalTrack.Ssrc;
                 rtpPacket.Header.SequenceNumber = seqNum ?? LocalTrack.GetNextSeqNum();
@@ -446,7 +446,7 @@ namespace SIPSorcery.Net
                     foreach (var ext in LocalTrack.HeaderExtensions.Values)
                     {
                         // We support up to 14 extensions .... Not clear at all how to manage more ...
-                        if ((ext.Id < 1) || (ext.Id > 14))
+                        if (ext.Id is < 1 or > 14)
                         {
                             continue;
                         }
@@ -484,12 +484,12 @@ namespace SIPSorcery.Net
                     rtpPacket.Header.HeaderExtensionFlag = 0;
                 }
 
-                var rtpBuffer = rtpPacket.GetBytes();
+                var rtpBuffer = rtpPacket.GetBytes().AsSpan();
 
                 if (protectRtpPacket != null)
                 {
-                    int rtperr = 0;
-                    int outBufLen = 0;
+                    var rtperr = 0;
+                    var outBufLen = 0;
 
                     rtperr = protectRtpPacket(rtpBuffer, rtpBuffer.Length - srtpProtectionLength, out outBufLen);
 
@@ -500,7 +500,7 @@ namespace SIPSorcery.Net
                     }
                     else
                     {
-                        rtpBuffer = rtpBuffer.AsSpan(0, outBufLen).ToArray();
+                        rtpBuffer = rtpBuffer.Slice(0, outBufLen);
                     }
                 }
 
@@ -522,9 +522,14 @@ namespace SIPSorcery.Net
             }
         }
 
+        protected void SendRtpRaw(ArraySegment<byte> data, uint timestamp, int markerBit, int payloadType, Boolean checkDone, ushort? seqNum = null)
+        {
+            SendRtpRaw(data.AsSpan(), timestamp, markerBit, payloadType, checkDone, seqNum);
+        }
+
         protected void SendRtpRaw(byte[] data, uint timestamp, int markerBit, int payloadType, Boolean checkDone, ushort? seqNum = null)
         {
-            SendRtpRaw(new ArraySegment<byte>(data), timestamp, markerBit, payloadType, checkDone, seqNum);
+            SendRtpRaw(data.AsSpan(), timestamp, markerBit, payloadType, checkDone, seqNum);
         }
 
         /// <summary>

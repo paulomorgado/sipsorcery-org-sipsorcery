@@ -15,6 +15,7 @@
 // BSD 3-Clause "New" or "Revised" License, see included LICENSE.md file.
 //-----------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -64,7 +65,7 @@ public class EchoMediaSession : RTPSession, IMediaSession
             AudioStream.OnAudioFrameReceived += (audioFrame) =>
             {
                 // Echo the received audio frame back to the sender.
-                AudioStream?.SendAudio(audioFrame.DurationMilliSeconds, audioFrame.EncodedAudio);
+                AudioStream?.SendAudio(audioFrame.DurationMilliSeconds, audioFrame.EncodedAudio.AsSpan());
             };
         }
     }

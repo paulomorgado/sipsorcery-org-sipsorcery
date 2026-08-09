@@ -336,5 +336,15 @@ namespace SIPSorcery.Media
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
+
+        public void EncodeAudio(System.Buffers.IBufferWriter<byte> output, ReadOnlySpan<short> pcm, AudioFormat format)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DecodeAudio(System.Buffers.IBufferWriter<short> output, ReadOnlySpan<byte> encodedSample, AudioFormat format)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -67,6 +67,8 @@ namespace SIPSorcery.Media
         /// Unencoded test pattern samples.
         /// </summary>
         public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public event RawVideoSampleDelegate OnVideoSourceRawSample;
 
 #pragma warning disable CS0067
         public event RawVideoSampleFasterDelegate OnVideoSourceRawSampleFaster;
@@ -76,10 +78,11 @@ namespace SIPSorcery.Media
         /// If a video encoder has been set then this event contains the encoded video
         /// samples.
         /// </summary>
+        public event EncodedSampleSpanDelegate OnVideoSourceEncodedSampleSpan;
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
 
         public event SourceErrorDelegate OnVideoSourceError;
-        public event RawVideoSampleDelegate OnVideoSourceRawSample;
 
         public VideoTestPatternSource(IVideoEncoder encoder = null)
         {
@@ -119,6 +122,7 @@ namespace SIPSorcery.Media
         public void ForceKeyFrame() => _videoEncoder?.ForceKeyFrame();
         public bool HasEncodedVideoSubscribers() => OnVideoSourceEncodedSample != null;
 
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat) =>
             throw new NotImplementedException("The test pattern video source does not offer any encoding services for external sources.");
         

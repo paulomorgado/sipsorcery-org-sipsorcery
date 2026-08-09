@@ -24,7 +24,7 @@ namespace SIPSorcery.Media
         {
             // The audio extras source is used for on-hold music.
             AudioExtrasSource = new AudioExtrasSource(new AudioEncoder(), new AudioSourceOptions { AudioSource = AudioSourcesEnum.Music });
-            AudioExtrasSource.OnAudioSourceEncodedSample += SendAudio;
+            AudioExtrasSource.OnAudioSourceEncodedSampleSpan += SendAudio;
 
             base.OnAudioFormatsNegotiated += AudioFormatsNegotiated;
 
@@ -54,7 +54,7 @@ namespace SIPSorcery.Media
             {
                 base.Close(reason);
 
-                AudioExtrasSource.OnAudioSourceEncodedSample -= SendAudio;
+                AudioExtrasSource.OnAudioSourceEncodedSampleSpan -= SendAudio;
                 await AudioExtrasSource.CloseAudio().ConfigureAwait(false);
             }
         }

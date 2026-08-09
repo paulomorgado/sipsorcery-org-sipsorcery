@@ -79,7 +79,7 @@ namespace SIPSorcery.Net
         /// <param name="durationRtpUnits">The duration in RTP timestamp units of the audio sample. This
         /// value is added to the previous RTP timestamp when building the RTP header.</param>
         /// <param name="sample">The audio sample to set as the RTP packet payload.</param>
-        public void SendAudio(uint durationRtpUnits, ArraySegment<byte> sample)
+        public void SendAudio(uint durationRtpUnits, ReadOnlySpan<byte> sample)
         {
             if (!sendingFormatFound)
             {
@@ -95,6 +95,16 @@ namespace SIPSorcery.Net
         /// <param name="durationRtpUnits">The duration in RTP timestamp units of the audio sample. This
         /// value is added to the previous RTP timestamp when building the RTP header.</param>
         /// <param name="sample">The audio sample to set as the RTP packet payload.</param>
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public void SendAudio(uint durationRtpUnits, ArraySegment<byte> sample) => SendAudio(durationRtpUnits, sample.AsSpan());
+
+        /// <summary>
+        /// Sends an audio sample to the remote peer.
+        /// </summary>
+        /// <param name="durationRtpUnits">The duration in RTP timestamp units of the audio sample. This
+        /// value is added to the previous RTP timestamp when building the RTP header.</param>
+        /// <param name="sample">The audio sample to set as the RTP packet payload.</param>
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public void SendAudio(uint durationRtpUnits, byte[] sample)
         {
             SendAudio(durationRtpUnits, new ArraySegment<byte>(sample));
@@ -107,7 +117,7 @@ namespace SIPSorcery.Net
         /// gets added onto the timestamp being set in the RTP header.</param>
         /// <param name="payloadTypeID">The payload ID to set in the RTP header.</param>
         /// <param name="bufferSegment">The audio payload to send.</param>
-        public void SendAudioFrame(uint duration, int payloadTypeID, ArraySegment<byte> bufferSegment)
+        public void SendAudioFrame(uint duration, int payloadTypeID, ReadOnlySpan<byte> bufferSegment)
         {
             if (CheckIfCanSendRtpRaw())
             {
@@ -180,6 +190,20 @@ namespace SIPSorcery.Net
         /// gets added onto the timestamp being set in the RTP header.</param>
         /// <param name="payloadTypeID">The payload ID to set in the RTP header.</param>
         /// <param name="buffer">The audio payload to send.</param>
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public void SendAudioFrame(uint duration, int payloadTypeID, ArraySegment<byte> buffer)
+        {
+            SendAudioFrame(duration, payloadTypeID, buffer.AsSpan());
+        }
+
+        /// <summary>
+        /// Sends an audio packet to the remote party.
+        /// </summary>
+        /// <param name="duration">The duration of the audio payload in timestamp units. This value
+        /// gets added onto the timestamp being set in the RTP header.</param>
+        /// <param name="payloadTypeID">The payload ID to set in the RTP header.</param>
+        /// <param name="buffer">The audio payload to send.</param>
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public void SendAudioFrame(uint duration, int payloadTypeID, byte[] buffer)
         {
             SendAudioFrame(duration, payloadTypeID, new ArraySegment<byte>(buffer));

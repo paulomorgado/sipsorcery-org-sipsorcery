@@ -32,6 +32,7 @@
 
 using System;
 using System.Collections.Generic;
+using WebSocketSharp;
 
 namespace SIPSorcery.Net
 {
@@ -51,43 +52,88 @@ namespace SIPSorcery.Net
             }
         }
 
-        public static IEnumerable<H264Nal> ParseNals(byte[] accessUnit)
+        public ref struct H264NalEnumerator
         {
-            int zeroes = 0;
+            private ReadOnlySpan<byte> _accessUnit;
+            private int _currPosn;
+            private int _searchPosn;
+            private int _zeroes;
+            private (Range Range, bool IsLast) _current;
+            private bool _completed;
 
-            // Parse NALs from H264 access unit, encoded as an Annex B bitstream.
-            // NALs are delimited by 0x000001 or 0x00000001.
-            int currPosn = 0;
-            for (int i = 0; i < accessUnit.Length; i++)
+            public H264NalEnumerator(ReadOnlySpan<byte> accessUnit)
             {
-                if (accessUnit[i] == 0x00)
-                {
-                    zeroes++;
-                }
-                else if (accessUnit[i] == 0x01 && zeroes >= 2)
-                {
-                    // This is a NAL start sequence.
-                    int nalStart = i + 1;
-                    if (nalStart - currPosn > 4)
-                    {
-                        int endPosn = nalStart - ((zeroes == 2) ? 3 : 4);
-                        int nalSize = endPosn - currPosn;
-                        bool isLast = currPosn + nalSize == accessUnit.Length;
-
-                        yield return new H264Nal(accessUnit.AsSpan(currPosn, nalSize).ToArray(), isLast);
-                    }
-
-                    currPosn = nalStart;
-                }
-                else
-                {
-                    zeroes = 0;
-                }
+                _accessUnit = accessUnit;
+                _currPosn = 0;
+                _searchPosn = 0;
+                _zeroes = 0;
+                _current = default;
+                _completed = false;
             }
 
-            if (currPosn < accessUnit.Length)
+            public readonly (Range Range, bool IsLast) Current => _current;
+
+            public bool MoveNext()
             {
-                yield return new H264Nal(accessUnit.AsSpan(currPosn).ToArray(), true);
+                if (_completed)
+                    return false;
+
+                // Continue searching from where we left off
+                for (var i = _searchPosn; i < _accessUnit.Length; i++)
+                {
+                    if (_accessUnit[i] == 0x00)
+                    {
+                        _zeroes++;
+                    }
+                    else if (_accessUnit[i] == 0x01 && _zeroes >= 2)
+                    {
+                        var nalStart = i + 1;
+                        if (nalStart - _currPosn > 4)
+                        {
+                            var endPosn = nalStart - ((_zeroes == 2) ? 3 : 4);
+                            var nalSize = endPosn - _currPosn;
+
+                            _current = (_currPosn..(endPosn), false);
+                            _currPosn = nalStart;
+                            _searchPosn = i + 1;
+                            _zeroes = 0;
+                            return true;
+                        }
+
+                        _currPosn = nalStart;
+                        _zeroes = 0;
+                    }
+                    else
+                    {
+                        _zeroes = 0;
+                    }
+                }
+
+                // Return the last NAL if any data remains
+                if (_currPosn < _accessUnit.Length)
+                {
+                    _current = (_currPosn.., true);
+                    _completed = true;
+                    return true;
+                }
+
+                _completed = true;
+                return false;
+            }
+
+            public readonly H264NalEnumerator GetEnumerator() => this;
+        }
+
+        public static H264NalEnumerator ParseNals(ReadOnlySpan<byte> accessUnit)
+            => new H264NalEnumerator(accessUnit);
+
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public static IEnumerable<H264Nal> ParseNals(byte[] accessUnit)
+        {
+            var accessUnitSpan = accessUnit.AsSpan();
+            foreach (var (nal, isLast) in ParseNals(accessUnitSpan))
+            {
+                yield return new H264Nal(accessUnitSpan[nal].ToArray(), isLast);
             }
         }
 

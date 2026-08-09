@@ -160,11 +160,15 @@ namespace demo
         }
 
         public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
         public event SourceErrorDelegate OnVideoSourceError;
 
 #pragma warning disable CS0067
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public event RawVideoSampleDelegate OnVideoSourceRawSample;
         public event RawVideoSampleFasterDelegate OnVideoSourceRawSampleFaster;
+        public event EncodedSampleSpanDelegate OnVideoSourceEncodedSampleSpan;
 #pragma warning restore CS0067
 
         private readonly IVideoEncoder _videoEncoder;
@@ -187,6 +191,9 @@ namespace demo
         public bool HasEncodedVideoSubscribers() => OnVideoSourceEncodedSample != null;
         public bool IsVideoSourcePaused() => _isPaused;
 
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat) =>
+            throw new NotImplementedException("The Max Headroom source generates its own frames.");
         public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat) =>
             throw new NotImplementedException("The Max Headroom source generates its own frames.");
         public void ExternalVideoSourceRawSampleFaster(uint durationMilliseconds, RawImage rawImage) =>

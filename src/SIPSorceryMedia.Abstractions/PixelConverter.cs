@@ -31,7 +31,7 @@ public class PixelConverter
 #pragma warning restore CS0618 // Type or member is obsolete
     }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] ToI420(int width, int height, int stride, byte[] sample, VideoPixelFormatsEnum pixelFormat)
     {
         switch (pixelFormat)
@@ -105,7 +105,7 @@ public class PixelConverter
 #pragma warning restore CS0618 // Type or member is obsolete
     }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] RGBAtoI420(byte[] rgba, int width, int height, int stride, int dop = 1)
     {
         using var bufferWriter = new ArrayPoolBufferWriter<byte>();
@@ -175,7 +175,7 @@ public class PixelConverter
 #pragma warning restore CS0618 // Type or member is obsolete
     }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] RGBtoI420(byte[] rgb, int width, int height, int stride, int dop = 1)
     {
         using var bufferWriter = new ArrayPoolBufferWriter<byte>();
@@ -242,7 +242,7 @@ public class PixelConverter
 #pragma warning restore CS0618 // Type or member is obsolete
     }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] BGRtoI420(byte[] bgr, int width, int height, int stride, int dop = 1)
     {
         using var bufferWriter = new ArrayPoolBufferWriter<byte>();
@@ -301,7 +301,7 @@ public class PixelConverter
         output.Advance(outputSize);
     }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] BGRAtoI420(byte[] bgra, int width, int height, int stride, int dop = 1)
     {
         using var bufferWriter = new ArrayPoolBufferWriter<byte>();
@@ -370,7 +370,7 @@ public class PixelConverter
 #pragma warning restore CS0618 // Type or member is obsolete
     }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] I420toRGB(byte[] data, int width, int height, out int stride)
     {
         using var bufferWriter = new ArrayPoolBufferWriter<byte>();
@@ -436,7 +436,7 @@ public class PixelConverter
 #pragma warning restore CS0618 // Type or member is obsolete
     }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] I420toBGR(byte[] data, int width, int height, out int stride)
     {
         using var bufferWriter = new ArrayPoolBufferWriter<byte>();
@@ -502,7 +502,7 @@ public class PixelConverter
 #pragma warning restore CS0618 // Type or member is obsolete
     }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] NV12toBGR(byte[] data, int width, int height, int stride, int dop = 1)
     {
         using var bufferWriter = new ArrayPoolBufferWriter<byte>();
@@ -558,7 +558,7 @@ public class PixelConverter
         output.Advance(outputSize);
     }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] NV12toI420(byte[] nv12, int width, int height, int dop = 1)
     {
         using var bufferWriter = new ArrayPoolBufferWriter<byte>();
@@ -727,7 +727,7 @@ public class PixelConverter
     }
 #endif
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     public static byte[] I420toNV12(byte[] i420, int width, int height, int dop = 1)
     {
         using var bufferWriter = new ArrayPoolBufferWriter<byte>();

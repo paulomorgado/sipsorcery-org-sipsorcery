@@ -18,11 +18,14 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using SIPSorcery.Sys;
+using Tmds.Linux;
 
 namespace SIPSorcery.Net;
 
@@ -257,7 +260,7 @@ public class RTPChannel : IDisposable
     /// <param name="buffer">The data to send.</param>
     /// <returns>The result of initiating the send. This result does not reflect anything about
     /// whether the remote party received the packet or not.</returns>
-    public virtual SocketError Send(RTPChannelSocketsEnum sendOn, IPEndPoint dstEndPoint, byte[] buffer)
+    public virtual SocketError Send(RTPChannelSocketsEnum sendOn, IPEndPoint dstEndPoint, ReadOnlySpan<byte> buffer)
     {
         if (m_isClosed)
         {
@@ -267,7 +270,7 @@ public class RTPChannel : IDisposable
         {
             throw new ArgumentException("dstEndPoint", "An empty destination was specified to Send in RTPChannel.");
         }
-        else if (buffer == null || buffer.Length == 0)
+        else if (buffer.IsEmpty)
         {
             throw new ArgumentException("buffer", "The buffer must be set and non empty for Send in RTPChannel.");
         }
@@ -280,7 +283,7 @@ public class RTPChannel : IDisposable
         {
             try
             {
-                Socket sendSocket = RtpSocket;
+                var sendSocket = RtpSocket;
                 if (sendOn == RTPChannelSocketsEnum.Control)
                 {
                     LastControlDestination = dstEndPoint;
@@ -310,7 +313,9 @@ public class RTPChannel : IDisposable
                     m_rtpReceiver.BeginReceiveFrom();
                 }
 
-                sendSocket.BeginSendTo(buffer, 0, buffer.Length, SocketFlags.None, dstEndPoint, EndSendTo, sendSocket);
+                var pooledBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length);
+                buffer.CopyTo(pooledBuffer);
+                sendSocket.BeginSendTo(pooledBuffer, 0, buffer.Length, SocketFlags.None, dstEndPoint, EndSendTo, (sendSocket, pooledBuffer));
                 return SocketError.Success;
             }
             catch (ObjectDisposedException) // Thrown when socket is closed. Can be safely ignored.
@@ -329,15 +334,22 @@ public class RTPChannel : IDisposable
         }
     }
 
+    public virtual SocketError Send(RTPChannelSocketsEnum sendOn, IPEndPoint dstEndPoint, byte[] buffer) => Send(sendOn, dstEndPoint, buffer.AsSpan());
+
     /// <summary>
     /// Sends a packet via a TURN relay server.
     /// </summary>
     /// <param name="dstEndPoint">The peer destination end point.</param>
     /// <param name="buffer">The data to send to the peer.</param>
     /// <param name="relayEndPoint">The TURN server end point to send the relayed request to.</param>
+    public SocketError SendRelay(RTPChannelSocketsEnum sendOn, IPEndPoint dstEndPoint, ReadOnlySpan<byte> buffer, IPEndPoint relayEndPoint)
+    {
+        return SendRelay(sendOn, dstEndPoint, buffer.ToArray(), relayEndPoint);
+    }
+
     public SocketError SendRelay(RTPChannelSocketsEnum sendOn, IPEndPoint dstEndPoint, byte[] buffer, IPEndPoint relayEndPoint)
     {
-        STUNMessage sendReq = new STUNMessage(STUNMessageTypesEnum.SendIndication);
+        var sendReq = new STUNMessage(STUNMessageTypesEnum.SendIndication);
         sendReq.AddXORPeerAddressAttribute(dstEndPoint.Address, dstEndPoint.Port);
         sendReq.Attributes.Add(new STUNAttribute(STUNAttributeTypesEnum.Data, buffer));
 
@@ -360,8 +372,31 @@ public class RTPChannel : IDisposable
     {
         try
         {
-            Socket sendSocket = (Socket)ar.AsyncState;
-            int bytesSent = sendSocket.EndSendTo(ar);
+            byte[] pooledBuffer = null;
+            Socket sendSocket = null;
+
+            if (ar.AsyncState is Socket s)
+            {
+                sendSocket = s;
+            }
+            else if (ar.AsyncState is ValueTuple<Socket, IDisposable> tuple)
+            {
+                sendSocket = tuple.Item1;
+                memoryOwner = tuple.Item2;
+            }
+            else
+            {
+                throw new ApplicationException("RTPChannel EndSendTo was called with an unexpected async state.");
+            }
+
+            try
+            {
+                var bytesSent = sendSocket.EndSendTo(ar);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(pooledBuffer);
+            }
         }
         catch (SocketException sockExcp)
         {

@@ -25,9 +25,9 @@ public delegate void RawAudioSampleDelegate(AudioSamplingRatesEnum samplingRate,
 
 public interface IAudioSource
 {
-#pragma warning disable CS0618 // Waiting for refactoring
+    event EncodedSampleSpanDelegate OnAudioSourceEncodedSampleSpan;
+    [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
     event EncodedSampleDelegate OnAudioSourceEncodedSample;
-#pragma warning restore CS0618 // Waiting for refactoring
 
     event Action<EncodedAudioFrame> OnAudioSourceEncodedFrameReady;
 

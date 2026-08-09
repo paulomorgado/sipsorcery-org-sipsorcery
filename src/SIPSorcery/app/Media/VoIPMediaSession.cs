@@ -72,7 +72,7 @@ namespace SIPSorcery.Media
         public VoIPMediaSession(Func<AudioFormat, bool> restrictFormats = null, bool noDtmfSupport = false) : base(false, false, false)
         {
             _audioExtrasSource = new AudioExtrasSource();
-            _audioExtrasSource.OnAudioSourceEncodedSample += SendAudio;
+            _audioExtrasSource.OnAudioSourceEncodedSampleSpan += SendAudio;
             _audioExtrasSource.SetSource(AudioSourcesEnum.Music);
 
             if (restrictFormats != null)
@@ -120,21 +120,21 @@ namespace SIPSorcery.Media
 
             // The audio extras source is used for on-hold music.
             _audioExtrasSource = new AudioExtrasSource(config.AudioExtrasEncoder);
-            _audioExtrasSource.OnAudioSourceEncodedSample += SendAudio;
+            _audioExtrasSource.OnAudioSourceEncodedSampleSpan += SendAudio;
 
             // Wire up the audio and video sample event handlers.
             if (Media.AudioSource != null)
             {
                 var audioTrack = new MediaStreamTrack(config.MediaEndPoint.AudioSource.GetAudioSourceFormats());
                 base.addTrack(audioTrack);
-                Media.AudioSource.OnAudioSourceEncodedSample += SendAudio;
+                Media.AudioSource.OnAudioSourceEncodedSampleSpan += SendAudio;
             }
 
             if (Media.VideoSource != null)
             {
                 var videoTrack = new MediaStreamTrack(config.MediaEndPoint.VideoSource.GetVideoSourceFormats());
                 base.addTrack(videoTrack);
-                Media.VideoSource.OnVideoSourceEncodedSample += base.SendVideo;
+                Media.VideoSource.OnVideoSourceEncodedSampleSpan += base.SendVideo;
                 Media.VideoSource.OnVideoSourceError += VideoSource_OnVideoSourceError;
 
                 if (config.TestPatternSource != null)
@@ -142,7 +142,7 @@ namespace SIPSorcery.Media
                     // The test pattern source is used as failover if the webcam initialisation fails.
                     // It's also used as the video stream if the call is put on hold.
                     _videoTestPatternSource = config.TestPatternSource;
-                    _videoTestPatternSource.OnVideoSourceEncodedSample += base.SendVideo;
+                    _videoTestPatternSource.OnVideoSourceEncodedSampleSpan += base.SendVideo;
                     //_videoTestPatternSource.OnVideoSourceRawSample += Media.VideoSource.ExternalVideoSourceRawSample;
                 }
             }

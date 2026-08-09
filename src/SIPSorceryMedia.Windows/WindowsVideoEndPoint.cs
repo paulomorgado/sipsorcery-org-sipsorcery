@@ -86,7 +86,7 @@ namespace SIPSorceryMedia.Windows
         /// has been encoded and is ready for transmission.
         /// </summary>
         public event RawSpanVideoSampleDelegate OnVideoSourceRawSpanSample;
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event RawVideoSampleDelegate OnVideoSourceRawSample;
 
 #pragma warning disable 0067
@@ -100,7 +100,7 @@ namespace SIPSorceryMedia.Windows
         /// This event will be fired whenever a video sample is encoded and is ready to transmit to the remote party.
         /// </summary>
         public event EncodedSampleSpanDelegate OnVideoSourceEncodedSampleSpan;
-        [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
         public event EncodedSampleDelegate OnVideoSourceEncodedSample;
 
         /// <summary>
@@ -161,6 +161,9 @@ namespace SIPSorceryMedia.Windows
         public List<VideoFormat> GetVideoSinkFormats() => _videoFormatManager.GetSourceFormats();
         public void SetVideoSinkFormat(VideoFormat videoFormat) => _videoFormatManager.SetSelectedFormat(videoFormat);
         public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat) =>
+             throw new ApplicationException("The Windows Video End Point does not support external samples. Use the video end point from SIPSorceryMedia.Encoders.");
+        [Obsolete("Use the overload that takes ReadOnlySpan in order to reduce memory allocations.")]
+        public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat) =>
              throw new ApplicationException("The Windows Video End Point does not support external samples. Use the video end point from SIPSorceryMedia.Encoders.");
 
         public void ExternalVideoSourceRawSampleFaster(uint durationMilliseconds, RawImage rawImage) =>
@@ -323,7 +326,7 @@ namespace SIPSorceryMedia.Windows
                 //DateTime startTime = DateTime.Now;
 
                 //List<byte[]> decodedFrames = _vp8Decoder.Decode(frame, frame.Length, out var width, out var height);
-                var decodedFrames = _videoEncoder.DecodeVideo(frame, EncoderInputFormat, _videoFormatManager.SelectedFormat.Codec);
+                var decodedFrames = _videoEncoder.DecodeVideo(frame.AsSpan(), EncoderInputFormat, _videoFormatManager.SelectedFormat.Codec);
 
                 if (decodedFrames == null)
                 {
@@ -552,8 +555,8 @@ namespace SIPSorceryMedia.Windows
 
                         if (softwareBitmap != null)
                         {
-                            int width = softwareBitmap.PixelWidth;
-                            int height = softwareBitmap.PixelHeight;
+                            var width = softwareBitmap.PixelWidth;
+                            var height = softwareBitmap.PixelHeight;
 
                             if (softwareBitmap.BitmapPixelFormat != BitmapPixelFormat.Nv12)
                             {
@@ -563,7 +566,7 @@ namespace SIPSorceryMedia.Windows
                             // Swap the processed frame to _backBuffer and dispose of the unused image.
                             softwareBitmap = Interlocked.Exchange(ref _backBuffer, softwareBitmap);
 
-                            using (BitmapBuffer buffer = _backBuffer.LockBuffer(BitmapBufferAccessMode.Read))
+                            using (var buffer = _backBuffer.LockBuffer(BitmapBufferAccessMode.Read))
                             {
                                 using (var reference = buffer.CreateReference())
                                 {
@@ -572,20 +575,27 @@ namespace SIPSorceryMedia.Windows
                                         byte* dataInBytes;
                                         uint capacity;
                                         reference.As<IMemoryBufferByteAccess>().GetBuffer(out dataInBytes, out capacity);
-                                        byte[] nv12Buffer = new byte[capacity];
+                                        var nv12Buffer = new byte[capacity];
                                         Marshal.Copy((IntPtr)dataInBytes, nv12Buffer, 0, (int)capacity);
 
-                                        if (OnVideoSourceEncodedSample != null)
+                                        var onVideoSourceEncodedSampleSpan = OnVideoSourceEncodedSampleSpan;
+                                        var onVideoSourceEncodedSample = OnVideoSourceEncodedSample;
+                                        if (onVideoSourceEncodedSampleSpan is not null || onVideoSourceEncodedSample is not null)
                                         {
                                             lock (_videoEncoder)
                                             {
-                                                var encodedBuffer = _videoEncoder.EncodeVideo(width, height, nv12Buffer, EncoderInputFormat, _videoFormatManager.SelectedFormat.Codec);
+                                                using var encodedBuffer = new ArrayPoolBufferWriter<byte>();
+                                                _videoEncoder.EncodeVideo(encodedBuffer, width, height, nv12Buffer, EncoderInputFormat, _videoFormatManager.SelectedFormat.Codec);
 
-                                                if (encodedBuffer != null)
+                                                if (encodedBuffer.WrittenCount > 0)
                                                 {
-                                                    uint fps = (_fpsDenominator > 0 && _fpsNumerator > 0) ? _fpsNumerator / _fpsDenominator : DEFAULT_FRAMES_PER_SECOND;
-                                                    uint durationRtpTS = VIDEO_SAMPLING_RATE / fps;
-                                                    OnVideoSourceEncodedSample.Invoke(durationRtpTS, encodedBuffer);
+                                                    var fps = (_fpsDenominator > 0 && _fpsNumerator > 0) ? _fpsNumerator / _fpsDenominator : DEFAULT_FRAMES_PER_SECOND;
+                                                    var durationRtpTS = VIDEO_SAMPLING_RATE / fps;
+                                                    onVideoSourceEncodedSampleSpan(durationRtpTS, encodedBuffer.WrittenSpan);
+                                                    if (onVideoSourceEncodedSample is not null)
+                                                    {
+                                                        onVideoSourceEncodedSample(durationRtpTS, encodedBuffer.WrittenSpan.ToArray());
+                                                    }
                                                 }
 
                                                 if (_forceKeyFrame)
@@ -595,7 +605,9 @@ namespace SIPSorceryMedia.Windows
                                             }
                                         }
 
-                                        if (OnVideoSourceRawSpanSample != null)
+                                        var onVideoSourceRawSpanSample = OnVideoSourceRawSpanSample;
+                                        var onVideoSourceRawSample = OnVideoSourceRawSample;
+                                        if (onVideoSourceRawSpanSample is not null || onVideoSourceRawSample is not null)
                                         {
                                             uint frameSpacing = 0;
                                             if (_lastFrameAt != DateTime.MinValue)
@@ -606,7 +618,11 @@ namespace SIPSorceryMedia.Windows
                                             using var bufferWriter = new ArrayPoolBufferWriter<byte>();
                                             PixelConverter.NV12toBGR(bufferWriter, nv12Buffer.AsSpan(), width, height, width * 3);
 
-                                            OnVideoSourceRawSpanSample(frameSpacing, width, height, bufferWriter.WrittenSpan, VideoPixelFormatsEnum.Bgr);
+                                            onVideoSourceRawSpanSample(frameSpacing, width, height, bufferWriter.WrittenSpan, VideoPixelFormatsEnum.Bgr);
+                                            if (onVideoSourceRawSample is not null)
+                                            {
+                                                onVideoSourceRawSample(frameSpacing, width, height, bufferWriter.WrittenSpan.ToArray(), VideoPixelFormatsEnum.Bgr);
+                                            }
                                         }
                                     }
                                 }
@@ -745,10 +761,5 @@ namespace SIPSorceryMedia.Windows
         public Task Pause() => PauseVideo();
 
         public Task Resume() => ResumeVideo();
-
-        public void ExternalVideoSourceRawSample(uint durationMilliseconds, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat)
-        {
-            throw new NotImplementedException();
-        }
     }
 }

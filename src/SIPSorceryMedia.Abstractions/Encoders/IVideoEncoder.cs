@@ -27,21 +27,21 @@ public interface IVideoEncoder : IDisposable
     /// </summary>
     List<VideoFormat> SupportedFormats { get; }
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes IBufferWriter and ReadOnlySpan in order to reduce memory allocations.")]
     byte[] EncodeVideo(int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec);
     bool EncodeVideo(IBufferWriter<byte> output, int width, int height, ReadOnlySpan<byte> sample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec);
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes IBufferWriter and ReadOnlySpan in order to reduce memory allocations.")]
     byte[] EncodeVideoFaster(RawImage rawImage, VideoCodecsEnum codec); // Avoid to use byte[] to improve performance
     bool EncodeVideoFaster(IBufferWriter<byte> output, RawImage rawImage, VideoCodecsEnum codec); // Avoid to use byte[] to improve performance
 
     void ForceKeyFrame();
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes IBufferWriter and ReadOnlySpan in order to reduce memory allocations.")]
     IEnumerable<VideoSample> DecodeVideo(byte[] encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec);
     IEnumerable<VideoSample> DecodeVideo(ReadOnlySpan<byte> encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec);
 
-    [Obsolete("Use ReadOnlySpan<byte> overload in order to reduce memory allocations.")]
+    [Obsolete("Use the overload that takes IBufferWriter and ReadOnlySpan in order to reduce memory allocations.")]
     IEnumerable<RawImage> DecodeVideoFaster(byte[] encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec); // Avoid to use byte[] to improve performance
     IEnumerable<RawImage> DecodeVideoFaster(ReadOnlySpan<byte> encodedSample, VideoPixelFormatsEnum pixelFormat, VideoCodecsEnum codec); // Avoid to use byte[] to improve performance
 }
