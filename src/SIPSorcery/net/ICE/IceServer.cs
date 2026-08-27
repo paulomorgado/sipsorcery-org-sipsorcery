@@ -232,80 +232,65 @@ namespace SIPSorcery.Net
                 throw new ArgumentNullException(nameof(iceServer));
             }
 
+            return ParseIceServer(iceServer.AsSpan());
+        }
+
+        public static IceServer ParseIceServer(ReadOnlySpan<char> iceServer)
+        {
             iceServer = iceServer.Trim();
-            if (iceServer.Length == 0)
+            if (iceServer.IsEmpty)
             {
                 throw new ArgumentException("ICE server string cannot be empty.", nameof(iceServer));
             }
 
-            var fields = iceServer.Split([';'], StringSplitOptions.None);
-
-            string Unquote(string s)
-            {
-                if (string.IsNullOrEmpty(s))
-                {
-                    return s;
-                }
-
-                s = s.Trim();
-                if (s.Length >= 2)
-                {
-                    if ((s[0] == '"' && s[s.Length - 1] == '"') ||
-                        (s[0] == '\'' && s[s.Length - 1] == '\''))
-                    {
-                        return s.Substring(1, s.Length - 2);
-                    }
-                }
-                return s;
-            }
+            Span<Range> fieldRanges = stackalloc Range[4];
+            var fieldCount = iceServer.Split(fieldRanges, ';', StringSplitOptions.None);
 
             // urls (required)
-            string urlsFieldRaw = fields.Length > 0 ? Unquote(fields[0]) : null;
-            if (string.IsNullOrWhiteSpace(urlsFieldRaw))
+            var urlsFieldRaw = fieldCount > 0 ? Unquote(iceServer[fieldRanges[0]]) : default;
+            if (urlsFieldRaw.IsEmptyOrWhiteSpace())
             {
                 throw new ArgumentException("ICE server value must include a STUN/TURN URL in the first field.", nameof(iceServer));
             }
 
             // If multiple URLs are provided, take the first non-empty candidate.
             // Split on comma or whitespace.
-            var urlCandidates = urlsFieldRaw.Split([ ',', ' '], StringSplitOptions.RemoveEmptyEntries)
-                                            .Select(u => u.Trim())
-                                            .ToArray();
-
-            string selectedUrl = urlCandidates.Length > 0 ? urlCandidates[0] : urlsFieldRaw.Trim();
-
-            // Try validate; if it fails, try auto-prefixing stun:
-            bool isValid = STUNUri.TryParse(selectedUrl, out var stunUri);
-            if (!isValid)
+            var selectedUrlSpan = urlsFieldRaw;
+            foreach (var urlRange in urlsFieldRaw.SplitAny(", "))
             {
-                var withScheme = $"stun:{selectedUrl}";
-                if (STUNUri.TryParse(withScheme, out var _))
+                var urlCandidate = urlsFieldRaw[urlRange].Trim();
+                if (!urlCandidate.IsEmpty)
                 {
-                    selectedUrl = withScheme;
-                    isValid = true;
+                    selectedUrlSpan = urlCandidate;
+                    break;
                 }
             }
 
+            // Try validate; if it fails, try auto-prefixing stun:
+            var isValid = STUNUri.TryParse(selectedUrlSpan, out var stunUri);
             if (!isValid)
             {
-                throw new ArgumentException(
-                    $"Invalid ICE server URL: '{selectedUrl}'. Expected a STUN/TURN URI such as 'stun:example.org:3478' or 'turn:example.org?transport=tcp'.",
-                    nameof(iceServer));
+                var selectedUrl = selectedUrlSpan.ToString();
+                var withScheme = $"stun:{selectedUrl}";
+                if (STUNUri.TryParse(withScheme, out var _))
+                {
+                    isValid = true;
+                }
+                else
+                {
+                    throw new ArgumentException(
+                        $"Invalid ICE server URL: '{selectedUrl}'. Expected a STUN/TURN URI such as 'stun:example.org:3478' or 'turn:example.org?transport=tcp'.",
+                        nameof(iceServer));
+                }
             }
 
             // username (optional)
-            string username = fields.Length > 1 ? Unquote(fields[1]) : null;
-            if (string.IsNullOrWhiteSpace(username))
-            {
-                username = null;
-            }
+            var usernameSpan = fieldCount > 1 ? Unquote(iceServer[fieldRanges[1]]) : default;
+            var username = usernameSpan.IsEmptyOrWhiteSpace() ? null : usernameSpan.ToString();
 
             // credential (optional)
-            string credential = fields.Length > 2 ? Unquote(fields[2]) : null;
-            if (string.IsNullOrWhiteSpace(credential))
-            {
-                credential = null;
-            }
+            var credentialSpan = fieldCount > 2 ? Unquote(iceServer[fieldRanges[2]]) : default;
+            var credential = credentialSpan.IsEmptyOrWhiteSpace() ? null : credentialSpan.ToString();
 
             return new IceServer
             (
@@ -314,6 +299,19 @@ namespace SIPSorcery.Net
                 username,
                 credential
             );
+
+            static ReadOnlySpan<char> Unquote(ReadOnlySpan<char> value)
+            {
+                value = value.Trim();
+                if (value.Length >= 2 &&
+                    ((value[0] == '"' && value[value.Length - 1] == '"') ||
+                     (value[0] == '\'' && value[value.Length - 1] == '\'')))
+                {
+                    return value.Slice(1, value.Length - 2);
+                }
+
+                return value;
+            }
         }
 
         /// <summary>

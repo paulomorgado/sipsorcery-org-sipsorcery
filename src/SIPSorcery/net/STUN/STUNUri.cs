@@ -19,6 +19,7 @@
 using System;
 using System.ComponentModel;
 using System.Net.Sockets;
+using Polyfills;
 using SIPSorcery.Sys;
 
 namespace SIPSorcery.Net
@@ -152,56 +153,49 @@ namespace SIPSorcery.Net
             return uri;
         }
 
-        public static bool TryParse(string uriStr, out STUNUri uri)
+        public static bool TryParse(string uriStr, out STUNUri uri) => TryParse(uriStr.AsSpan(), out uri);
+
+        public static bool TryParse(ReadOnlySpan<char> uriStr, out STUNUri uri)
         {
             uri = null;
 
-            if (string.IsNullOrEmpty(uriStr))
+            if (uriStr.IsEmpty)
             {
                 return false;
             }
 
-            ReadOnlySpan<char> uriSpan = uriStr.AsSpan();
             STUNProtocolsEnum transport = STUNProtocolsEnum.udp;
-            bool explicitTransport = false;
+            var explicitTransport = false;
 
             // Handle transport protocol
-            int transportIndex = uriSpan.IndexOf('?');
-            if (transportIndex >= 0 && uriSpan.Slice(transportIndex, SCHEME_TRANSPORT_SEPARATOR.Length).SequenceEqual(SCHEME_TRANSPORT_SEPARATOR.AsSpan()))
+            var transportIndex = uriStr.IndexOf('?');
+            if (transportIndex >= 0 && uriStr.Slice(transportIndex, SCHEME_TRANSPORT_SEPARATOR.Length).SequenceEqual(SCHEME_TRANSPORT_SEPARATOR.AsSpan()))
             {
                 explicitTransport = true;
-                var protocolSpan = uriSpan.Slice(transportIndex + SCHEME_TRANSPORT_SEPARATOR.Length).Trim();
-#if NET6_0_OR_GREATER
+                var protocolSpan = uriStr.Slice(transportIndex + SCHEME_TRANSPORT_SEPARATOR.Length).Trim();
                 if (!protocolSpan.IsEmpty && !Enum.TryParse(protocolSpan, true, out transport))
-#else
-                if (!protocolSpan.IsEmpty && !Enum.TryParse(protocolSpan.ToString(), true, out transport))
-#endif
                 {
                     transport = STUNProtocolsEnum.udp;
                 }
-                uriSpan = uriSpan.Slice(0, transportIndex);
+                uriStr = uriStr.Slice(0, transportIndex);
             }
 
-            uriSpan = uriSpan.Trim();
+            uriStr = uriStr.Trim();
             var scheme = DefaultSTUNScheme;
 
             // Handle scheme parsing
-            if (uriSpan.Length > SCHEME_MAX_LENGTH + 2)
+            if (uriStr.Length > SCHEME_MAX_LENGTH + 2)
             {
-                ReadOnlySpan<char> schemeSpan = uriSpan.Slice(0, SCHEME_MAX_LENGTH + 1);
-                int colonPosn = schemeSpan.IndexOf(SCHEME_ADDR_SEPARATOR);
+                ReadOnlySpan<char> schemeSpan = uriStr.Slice(0, SCHEME_MAX_LENGTH + 1);
+                var colonPosn = schemeSpan.IndexOf(SCHEME_ADDR_SEPARATOR);
 
                 if (colonPosn >= 0)
                 {
-#if NET6_0_OR_GREATER
                     if (!Enum.TryParse(schemeSpan.Slice(0, colonPosn), true, out scheme))
-#else
-                    if (!Enum.TryParse(schemeSpan.Slice(0, colonPosn).ToString(), true, out scheme))
-#endif
                     {
                         scheme = DefaultSTUNScheme;
                     }
-                    uriSpan = uriSpan.Slice(colonPosn + 1);
+                    uriStr = uriStr.Slice(colonPosn + 1);
                 }
             }
 
@@ -218,12 +212,12 @@ namespace SIPSorcery.Net
             int port;
             string host;
 
-            int lastColonPos = uriSpan.LastIndexOf(':');
+            var lastColonPos = uriStr.LastIndexOf(':');
             if (lastColonPos != -1)
             {
                 explicitPort = true;
 
-                if (IPSocket.TryParseIPEndPoint(uriSpan, out var ipEndPoint))
+                if (IPSocket.TryParseIPEndPoint(uriStr, out var ipEndPoint))
                 {
                     if (ipEndPoint.AddressFamily == AddressFamily.InterNetworkV6)
                     {
@@ -237,12 +231,8 @@ namespace SIPSorcery.Net
                 }
                 else
                 {
-                    host = uriSpan.Slice(0, lastColonPos).ToString();
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-                    if (!int.TryParse(uriSpan.Slice(lastColonPos + 1), out port))
-#else
-                    if (!int.TryParse(uriSpan.Slice(lastColonPos + 1).ToString(), out port))
-#endif
+                    host = uriStr.Slice(0, lastColonPos).ToString();
+                    if (!int.TryParse(uriStr.Slice(lastColonPos + 1), out port))
                     {
                         port = STUNConstants.GetPortForScheme(scheme);
                     }
@@ -250,7 +240,7 @@ namespace SIPSorcery.Net
             }
             else
             {
-                host = uriSpan.ToString();
+                host = uriStr.ToString();
                 port = STUNConstants.GetPortForScheme(scheme);
             }
 

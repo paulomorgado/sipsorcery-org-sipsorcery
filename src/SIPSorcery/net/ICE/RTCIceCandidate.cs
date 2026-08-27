@@ -19,7 +19,10 @@
 //-----------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Net;
+using CommunityToolkit.HighPerformance.Buffers;
+using Polyfills;
 
 namespace SIPSorcery.Net
 {
@@ -172,62 +175,84 @@ namespace SIPSorcery.Net
             {
                 throw new ArgumentNullException("Cant parse ICE candidate from empty string.", candidateLine);
             }
-            else
+
+            return Parse(candidateLine.AsSpan());
+        }
+
+        public static RTCIceCandidate Parse(ReadOnlySpan<char> candidateLine)
+        {
+            if (candidateLine.IsEmpty)
             {
-                candidateLine = candidateLine.Replace("candidate:", "");
+                throw new ArgumentNullException("Cant parse ICE candidate from empty string.");
+            }
 
-                RTCIceCandidate candidate = new RTCIceCandidate();
+            candidateLine = candidateLine.Trim();
+            if (candidateLine.StartsWith("candidate:", StringComparison.Ordinal))
+            {
+                candidateLine = candidateLine.Slice("candidate:".Length);
+            }
 
-                string[] candidateFields = candidateLine.Trim().Split(' ');
+            RTCIceCandidate candidate = new RTCIceCandidate();
+            Span<Range> candidateFieldRanges = stackalloc Range[16];
+            var candidateFieldCount = candidateLine.Split(candidateFieldRanges, ' ', StringSplitOptions.None);
 
-                candidate.foundation = candidateFields[0];
+            candidate.foundation = candidateLine[candidateFieldRanges[0]].ToString();
 
-                if (Enum.TryParse<RTCIceComponent>(candidateFields[1], out var candidateComponent))
+            if (Enum.TryParse<RTCIceComponent>(candidateLine[candidateFieldRanges[1]], out var candidateComponent))
+            {
+                candidate.component = candidateComponent;
+            }
+
+            if (Enum.TryParse<RTCIceProtocol>(candidateLine[candidateFieldRanges[2]], out var candidateProtocol))
+            {
+                candidate.protocol = candidateProtocol;
+            }
+
+            if (uint.TryParse(candidateLine[candidateFieldRanges[3]], out var candidatePriority))
+            {
+                candidate.priority = candidatePriority;
+            }
+
+            candidate.address = candidateLine[candidateFieldRanges[4]].ToString();
+            candidate.port = ParseUInt16(candidateLine[candidateFieldRanges[5]]);
+
+            if (Enum.TryParse<RTCIceCandidateType>(candidateLine[candidateFieldRanges[7]], out var candidateType))
+            {
+                candidate.type = candidateType;
+            }
+
+            // TCP Candidates require extra steps to be parsed
+            // {"candidate":"candidate:4 1 TCP 2105458943 10.0.1.16 9 typ host tcptype active","sdpMid":"sdparta_0","sdpMLineIndex":0}
+            var parseIndex = 8;
+            if (candidate.protocol == RTCIceProtocol.tcp)
+            {
+                if (candidateFieldCount > parseIndex && candidateLine[candidateFieldRanges[parseIndex]].SequenceEqual(TCP_TYPE_KEY))
                 {
-                    candidate.component = candidateComponent;
+                    candidate.relatedAddress = candidateLine[candidateFieldRanges[parseIndex + 1]].ToString();
+                }
+                parseIndex += 2;
+            }
+
+            if (candidateFieldCount > parseIndex && candidateLine[candidateFieldRanges[parseIndex]].SequenceEqual(REMOTE_ADDRESS_KEY))
+            {
+                candidate.relatedAddress = candidateLine[candidateFieldRanges[parseIndex + 1]].ToString();
+            }
+
+            if (candidateFieldCount > parseIndex + 2 && candidateLine[candidateFieldRanges[parseIndex + 2]].SequenceEqual(REMOTE_PORT_KEY))
+            {
+                candidate.relatedPort = ParseUInt16(candidateLine[candidateFieldRanges[parseIndex + 3]]);
+            }
+
+            return candidate;
+
+            static ushort ParseUInt16(ReadOnlySpan<char> value)
+            {
+                if (ushort.TryParse(value, out var result))
+                {
+                    return result;
                 }
 
-                if (Enum.TryParse<RTCIceProtocol>(candidateFields[2], out var candidateProtocol))
-                {
-                    candidate.protocol = candidateProtocol;
-                }
-
-                if (uint.TryParse(candidateFields[3], out var candidatePriority))
-                {
-                    candidate.priority = candidatePriority;
-                }
-
-                candidate.address = candidateFields[4];
-                candidate.port = Convert.ToUInt16(candidateFields[5]);
-
-                if (Enum.TryParse<RTCIceCandidateType>(candidateFields[7], out var candidateType))
-                {
-                    candidate.type = candidateType;
-                }
-
-                // TCP Candidates require extra steps to be parsed
-                // {"candidate":"candidate:4 1 TCP 2105458943 10.0.1.16 9 typ host tcptype active","sdpMid":"sdparta_0","sdpMLineIndex":0}
-                var parseIndex = 8;
-                if (candidate.protocol == RTCIceProtocol.tcp)
-                {
-                    if (candidateFields.Length > parseIndex && candidateFields[parseIndex] == TCP_TYPE_KEY)
-                    {
-                        candidate.relatedAddress = candidateFields[parseIndex + 1];
-                    }
-                    parseIndex += 2;
-                }
-
-                if (candidateFields.Length > parseIndex && candidateFields[parseIndex] == REMOTE_ADDRESS_KEY)
-                {
-                    candidate.relatedAddress = candidateFields[parseIndex+1];
-                }
-
-                if (candidateFields.Length > parseIndex+2 && candidateFields[parseIndex+2] == REMOTE_PORT_KEY)
-                {
-                    candidate.relatedPort = Convert.ToUInt16(candidateFields[parseIndex+3]);
-                }
-
-                return candidate;
+                throw new FormatException("Input string was not in a correct format.");
             }
         }
 
@@ -243,41 +268,56 @@ namespace SIPSorcery.Net
         /// description.</returns>
         public override string ToString()
         {
-            if (type == RTCIceCandidateType.host || type == RTCIceCandidateType.prflx)
+            using var writer = new ArrayPoolBufferWriter<char>(4096);
+            WriteString(writer);
+            return writer.ToString();
+        }
+
+        public void WriteString(IBufferWriter<char> writer)
+        {
+            writer
+                .Write(foundation).Write(' ')
+                .Write(component.GetHashCode()).Write(' ')
+                .Write(protocol == RTCIceProtocol.tcp ? "tcp " : "udp ")
+                .Write(priority).Write(' ')
+                .Write(address).Write(' ')
+                .Write(port).Write(" typ ")
+                .Write(CandidateTypeToString(type));
+
+            if (protocol == RTCIceProtocol.tcp)
             {
-                string candidateStr;
-                if (protocol == RTCIceProtocol.tcp)
-                {
-                    candidateStr = $"{foundation} {component.GetHashCode()} tcp {priority} {address} {port} typ {type} tcptype {tcpType} generation 0";
-                }
-                else
-                {
-                    candidateStr = $"{foundation} {component.GetHashCode()} udp {priority} {address} {port} typ {type} generation 0";
-                }
-
-                return candidateStr;
+                writer.Write(" tcptype ").Write(TcpCandidateTypeToString(tcpType));
             }
-            else
+
+            if (type is not RTCIceCandidateType.host and not RTCIceCandidateType.prflx)
             {
-                string relAddr = relatedAddress;
-
-                if (string.IsNullOrWhiteSpace(relAddr))
-                {
-                    relAddr = IPAddress.Any.ToString();
-                }
-
-                string candidateStr;
-                if (protocol == RTCIceProtocol.tcp)
-                {
-                    candidateStr = $"{foundation} {component.GetHashCode()} tcp {priority} {address} {port} typ {type} tcptype {tcpType} raddr {relAddr} rport {relatedPort} generation 0";
-                }
-                else
-                {
-                    candidateStr = $"{foundation} {component.GetHashCode()} udp {priority} {address} {port} typ {type} raddr {relAddr} rport {relatedPort} generation 0";
-                }
-
-                return candidateStr;
+                writer
+                    .Write(" raddr ")
+                    .Write(string.IsNullOrWhiteSpace(relatedAddress) ? "0.0.0.0" : relatedAddress)
+                    .Write(" rport ")
+                    .Write(relatedPort);
             }
+
+            writer.Write(" generation 0");
+
+            // TODO: use https://www.nuget.org/packages/NetEscapades.EnumGenerators
+            static string CandidateTypeToString(RTCIceCandidateType candidateType) => candidateType switch
+            {
+                RTCIceCandidateType.host => "host",
+                RTCIceCandidateType.prflx => "prflx",
+                RTCIceCandidateType.srflx => "srflx",
+                RTCIceCandidateType.relay => "relay",
+                _ => candidateType.ToString()
+            };
+
+            // TODO: use https://www.nuget.org/packages/NetEscapades.EnumGenerators
+            static string TcpCandidateTypeToString(RTCIceTcpCandidateType candidateType) => candidateType switch
+            {
+                RTCIceTcpCandidateType.active => "active",
+                RTCIceTcpCandidateType.passive => "passive",
+                RTCIceTcpCandidateType.so => "so",
+                _ => candidateType.ToString()
+            };
         }
 
         /// <summary>
