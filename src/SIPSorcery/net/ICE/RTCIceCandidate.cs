@@ -20,6 +20,7 @@
 
 using System;
 using System.Net;
+using System.Text;
 
 namespace SIPSorcery.Net
 {
@@ -243,41 +244,56 @@ namespace SIPSorcery.Net
         /// description.</returns>
         public override string ToString()
         {
-            if (type == RTCIceCandidateType.host || type == RTCIceCandidateType.prflx)
+            var builder = new StringBuilder();
+            WriteString(builder);
+            return builder.ToString();
+        }
+
+        public void WriteString(StringBuilder builder)
+        {
+            builder
+                .Append(foundation).Append(' ')
+                .Append(component.GetHashCode()).Append(' ')
+                .Append(protocol == RTCIceProtocol.tcp ? "tcp " : "udp ")
+                .Append(priority).Append(' ')
+                .Append(address).Append(' ')
+                .Append(port).Append(" typ ")
+                .Append(CandidateTypeToString(type));
+
+            if (protocol == RTCIceProtocol.tcp)
             {
-                string candidateStr;
-                if (protocol == RTCIceProtocol.tcp)
-                {
-                    candidateStr = $"{foundation} {component.GetHashCode()} tcp {priority} {address} {port} typ {type} tcptype {tcpType} generation 0";
-                }
-                else
-                {
-                    candidateStr = $"{foundation} {component.GetHashCode()} udp {priority} {address} {port} typ {type} generation 0";
-                }
-
-                return candidateStr;
+                builder.Append(" tcptype ").Append(TcpCandidateTypeToString(tcpType));
             }
-            else
+
+            if (type is not RTCIceCandidateType.host and not RTCIceCandidateType.prflx)
             {
-                string relAddr = relatedAddress;
-
-                if (string.IsNullOrWhiteSpace(relAddr))
-                {
-                    relAddr = IPAddress.Any.ToString();
-                }
-
-                string candidateStr;
-                if (protocol == RTCIceProtocol.tcp)
-                {
-                    candidateStr = $"{foundation} {component.GetHashCode()} tcp {priority} {address} {port} typ {type} tcptype {tcpType} raddr {relAddr} rport {relatedPort} generation 0";
-                }
-                else
-                {
-                    candidateStr = $"{foundation} {component.GetHashCode()} udp {priority} {address} {port} typ {type} raddr {relAddr} rport {relatedPort} generation 0";
-                }
-
-                return candidateStr;
+                builder
+                    .Append(" raddr ")
+                    .Append(string.IsNullOrWhiteSpace(relatedAddress) ? "0.0.0.0" : relatedAddress)
+                    .Append(" rport ")
+                    .Append(relatedPort);
             }
+
+            builder.Append(" generation 0");
+
+            // TODO: use https://www.nuget.org/packages/NetEscapades.EnumGenerators
+            static string CandidateTypeToString(RTCIceCandidateType candidateType) => candidateType switch
+            {
+                RTCIceCandidateType.host => "host",
+                RTCIceCandidateType.prflx => "prflx",
+                RTCIceCandidateType.srflx => "srflx",
+                RTCIceCandidateType.relay => "relay",
+                _ => candidateType.ToString()
+            };
+
+            // TODO: use https://www.nuget.org/packages/NetEscapades.EnumGenerators
+            static string TcpCandidateTypeToString(RTCIceTcpCandidateType candidateType) => candidateType switch
+            {
+                RTCIceTcpCandidateType.active => "active",
+                RTCIceTcpCandidateType.passive => "passive",
+                RTCIceTcpCandidateType.so => "so",
+                _ => candidateType.ToString()
+            };
         }
 
         /// <summary>
@@ -288,7 +304,7 @@ namespace SIPSorcery.Net
         {
             DestinationEndPoint = destinationEP;
         }
-       
+
         private string GetFoundation()
         {
             var serverProtocol = IceServer != null ? IceServer.Protocol.ToString().ToLower() : "udp";
